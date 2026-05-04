@@ -505,7 +505,9 @@ function buildEstilos(parametros) {
 
   return `
     @page { size: Letter; margin: ${mt}mm ${mr}mm ${mb}mm ${ml}mm; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: ${tamanio}px; color: #000; line-height: ${interlineado}; margin: 0; padding: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: ${tamanio}px; color: #000; line-height: ${interlineado}; width: 100%; overflow-wrap: break-word; word-wrap: break-word; }
     .header-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     .header-table td { vertical-align: middle; padding: 2px 4px; border: none; }
     .header-center { text-align: center; }
@@ -513,9 +515,11 @@ function buildEstilos(parametros) {
     h2.seccion { font-size: ${tamanio + 2}px; text-transform: uppercase; text-decoration: underline; margin: 12px 0 4px 0; page-break-after: avoid; }
     h3.seccion { font-size: ${tamanio + 1}px; text-transform: uppercase; text-decoration: underline; margin: 8px 0 3px 0; page-break-after: avoid; }
     h4.seccion { font-size: ${tamanio}px; font-weight: bold; margin: 6px 0 2px 0; page-break-after: avoid; }
-    .campo-line { display: flex; align-items: flex-start; margin: 2px 0; }
-    .campo-line b { min-width: 150px; width: 150px; flex-shrink: 0; padding-right: 6px; }
-    .campo-line .val { flex: 1; word-break: break-word; }
+    .campo-line { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0; page-break-inside: avoid; }
+    .campo-line b { flex: 0 0 160px; max-width: 160px; overflow-wrap: anywhere; word-break: break-word; }
+    .campo-line .val { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+    .campo-block { page-break-inside: avoid; margin: 4px 0; }
+    .campo-block b { display: block; margin-bottom: 2px; }
     .campo-block { margin: 4px 0; }
     .texto-libre { margin: 4px 0; }
     .tabla-dinamica { width: 100%; border-collapse: collapse; margin: 4px 0; }

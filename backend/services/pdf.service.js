@@ -92,6 +92,11 @@ async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'his
     const browser = await getBrowser();
     page = await browser.newPage();
 
+    // Viewport que coincida con el ancho de una página Letter a 96 DPI
+    // (8.5in × 96 = 816px). Sin esto, el viewport por defecto ~800px puede
+    // calcular el layout de flex/tablas mal antes de imprimir el PDF.
+    await page.setViewport({ width: 816, height: 1056, deviceScaleFactor: 1 });
+
     // Bloquear recursos externos (no debería haber, pero por si acaso)
     await page.setRequestInterception(true);
     page.on('request', (req) => {
@@ -101,11 +106,13 @@ async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'his
     });
 
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    await page.emulateMediaType('screen');
 
     const pdfBuffer = await page.pdf({
       format: buildFormat(parametros),
       margin: buildMargin(parametros),
       printBackground: true,
+      preferCSSPageSize: false,
     });
 
     await page.close();
