@@ -9,6 +9,7 @@
 
 const { sql, panaceaPool } = require('../../config/db');
 const { applyAudit } = require('./auditContext');
+const { normalizeRecordset } = require('./normalizeColumns');
 
 async function pool() {
   return panaceaPool;
@@ -20,7 +21,7 @@ async function getDatosTexto(idAtencion) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute('Laboratorio.STM_DATOS_TEXTO');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 module.exports = {

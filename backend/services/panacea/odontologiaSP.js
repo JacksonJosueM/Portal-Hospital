@@ -8,6 +8,7 @@
  */
 
 const { sql, panaceaPool } = require('../../config/db');
+const { normalizeRecordset } = require('./normalizeColumns');
 
 async function pool() {
   return panaceaPool;
@@ -19,7 +20,7 @@ async function getTratamientos(idAtencionInicial) {
     .input('ID_ATENCION_INICIAL', sql.BigInt, idAtencionInicial)
     .input('OPERACION', sql.SmallInt, 12)
     .execute('Odontologia.STM_TRATAMIENTOS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 module.exports = {

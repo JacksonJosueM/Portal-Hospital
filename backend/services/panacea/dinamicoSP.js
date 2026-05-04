@@ -15,6 +15,7 @@
 
 const { sql, panaceaPool } = require('../../config/db');
 const { applyAudit, getUsuario, getIpOrigen } = require('./auditContext');
+const { normalizeRecordset, normalizeFirst } = require('./normalizeColumns');
 
 // Tipos de rango que la traza recorre por cada id_dato (orden EXACTO)
 const TIPOS_RANGO = [2, 3, 5, 4, 6, 7, 8, 9, 10, 14];
@@ -27,7 +28,7 @@ async function getPlantilla(idPlantilla) {
   const p = await pool();
   const r = applyAudit(p.request(), 3).input('ID', sql.Int, idPlantilla);
   const result = await r.execute('Dinamico.STP_PLANTILLAS');
-  return result.recordset[0] || null;
+  return normalizeFirst(result.recordset);
 }
 
 async function getEstructuraPlanaPlantilla(idPlantilla) {
@@ -36,14 +37,14 @@ async function getEstructuraPlanaPlantilla(idPlantilla) {
     .input('ID_PLANTILLA', sql.Int, idPlantilla)
     .input('OPERACION', sql.SmallInt, 0)
     .execute('Dinamico.QRY_ESTRUCTURA_PLANA_PLANTILLA');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getDato(idDato) {
   const p = await pool();
   const r = applyAudit(p.request(), 3).input('ID', sql.Int, idDato);
   const result = await r.execute('Dinamico.STP_DATOS');
-  return result.recordset[0] || null;
+  return normalizeFirst(result.recordset);
 }
 
 async function getDatoCamposTablas(idDato) {
@@ -52,7 +53,7 @@ async function getDatoCamposTablas(idDato) {
     .input('ID', sql.Int, null)
     .input('ID_DATO', sql.Int, idDato);
   const result = await r.execute('Dinamico.STP_DATOS_CAMPOS_TABLAS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getDatoImagenes(idDato) {
@@ -61,7 +62,7 @@ async function getDatoImagenes(idDato) {
     .input('ID', sql.SmallInt, null)
     .input('ID_DATO', sql.Int, idDato);
   const result = await r.execute('Dinamico.STP_DATOS_IMAGENES');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getDatoValores(idDato) {
@@ -70,7 +71,7 @@ async function getDatoValores(idDato) {
     .input('ID', sql.SmallInt, null)
     .input('ID_DATO', sql.Int, idDato);
   const result = await r.execute('Dinamico.STP_DATOS_VALORES');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 /**
@@ -93,7 +94,7 @@ async function getRangoHistoria(idDato, idTipoRango) {
     .input('Timestamp', sql.VarBinary, null)
     .input('Operacion', sql.SmallInt, 6)
     .execute('Dinamico.STP_RANGOS_HISTORIA');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 /**

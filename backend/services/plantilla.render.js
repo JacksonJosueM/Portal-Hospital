@@ -5,33 +5,48 @@
  *
  *  Recibe el `printPayload` que arma `historia.print.service.js` y produce
  *  un HTML listo para Puppeteer, replicando la maqueta que Panacea
- *  Silverlight imprime: encabezado con IPS+sede, identificación del
- *  paciente, secciones de la plantilla iteradas en orden, datos clínicos,
- *  diagnósticos, órdenes, formulación médica, notas y firma del médico.
+ *  Silverlight imprime.
  *
- *  El motor es **completamente dinámico**: no hardcodea nombres de campos.
- *  Usa la columna ID_TIPO_DATO/TIPO_DATO de cada nodo para escoger el
- *  formateador correcto (texto, decimal, entero, lista, fecha, tabla,
- *  sección/grupo, texto libre, etc.).
+ *  Todas las columnas ya vienen normalizadas a UPPER_SNAKE_CASE por la
+ *  capa de wrappers SP (normalizeColumns.js).
  *
- *  Si en el futuro las columnas exactas de QRY_ESTRUCTURA_PLANA_PLANTILLA
- *  difieren un poco, basta con ajustar `getNodeKind()` y los formatters
- *  sin tocar el resto.
+ *  Estructura de la plantilla (QRY_ESTRUCTURA_PLANA_PLANTILLA):
+ *    ORIGEN          3=pestaña(sección), 2=grupo, 1=dato
+ *    ID              GUID — PK del nodo
+ *    ID_ESTRUCTURA   int  — ID del dato/grupo/pestaña subyacente
+ *    ID_ESTRUCTURA_PADRE  GUID — nodo padre (permite árbol multinivel)
+ *    TIPO_DATO_FIJO  int  — tipo fijo (1=texto,2=decimal,...,9=imagen)
+ *    TIPO_DATO       int  — tipo genérico (cuando TIPO_DATO_FIJO=0)
+ *    NOMBRE          string
+ *    ORDEN           int  — orden dentro de su padre
+ *
+ *  Los STM_DATOS_* usan ID_ESTRUCTURA_PLANTILLA (GUID) = nodo.ID
  * ════════════════════════════════════════════════════════════════════════════
  */
 
-// ── Tipos de dato fijos que entiende el motor ─────────────────────────────
-// (corresponden a Dinamico.TP_TIPOS_DATOS_FIJOS de Panacea)
-const TIPO = {
-  TEXTO: 1,
+// ── Tipos de dato fijo (TIPO_DATO_FIJO de Panacea) ───────────────────────
+const TIPO_FIJO = {
+  SISTEMA: 1,       // dato fijo del sistema (rellenado por el token, no por STM_DATOS_*)
   DECIMAL: 2,
   ENTERO: 3,
-  FECHA: 4,
+  SELECCION: 4,     // selección / combo
   LISTA: 5,
   TABLA: 6,
-  SECCION: 7,       // contenedor sin valor propio (encabezado/grupo)
-  TEXTO_LIBRE: 8,   // texto literal de la plantilla
+  SECCION: 7,
+  TEXTO_LIBRE: 8,
   IMAGEN: 9,
+};
+
+// ── Tipos de dato genérico (TIPO_DATO cuando TIPO_DATO_FIJO=0) ───────────
+const TIPO_DATO = {
+  NUMERICO: 1,
+  DECIMAL: 2,
+  LISTA_VALORES: 4,
+  TEXTO: 5,          // texto multilínea
+  FECHA: 8,
+  LOGICO: 10,        // booleano
+  CALCULADO: 11,
+  TEXTO_LARGO: 17,   // texto lista/largo
 };
 
 // ── Helpers de formato ────────────────────────────────────────────────────
@@ -70,53 +85,6 @@ function bytesToDataUrl(bytes, mime = 'image/png') {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
-// ── Lookup por id_estructura_plantilla ────────────────────────────────────
-function pickValor(records, preferKeys = ['VALOR', 'valor']) {
-  if (!records || records.length === 0) return null;
-  const rec = records[0];
-  for (const k of preferKeys) {
-    if (rec[k] != null) return rec[k];
-  }
-  return null;
-}
-
-function getNodeFieldId(nodo) {
-  return (
-    nodo.ID_DATO ?? nodo.IdDato ?? nodo.id_dato ??
-    nodo.ID_ORIGEN ?? nodo.id_origen ?? null
-  );
-}
-
-function getNodeStructureId(nodo) {
-  return (
-    nodo.ID_ESTRUCTURA_PLANTILLA ?? nodo.IdEstructuraPlantilla ??
-    nodo.id_estructura_plantilla ?? nodo.ID ?? nodo.id ?? null
-  );
-}
-
-function getNodeName(nodo, datoMeta) {
-  return (
-    nodo.NOMBRE ?? nodo.nombre ?? nodo.DESCRIPCION ??
-    nodo.TITULO ?? nodo.titulo ??
-    (datoMeta && (datoMeta.NOMBRE ?? datoMeta.nombre)) ??
-    ''
-  );
-}
-
-function getNodeTipoDato(nodo, datoMeta) {
-  // Prioriza el TIPO declarado en la estructura; si no, el del meta del dato.
-  return (
-    nodo.ID_TIPO_DATO_FIJO ?? nodo.id_tipo_dato_fijo ??
-    nodo.ID_TIPO_DATO ?? nodo.id_tipo_dato ??
-    (datoMeta && (datoMeta.ID_TIPO_DATO_FIJO ?? datoMeta.ID_TIPO_DATO)) ??
-    null
-  );
-}
-
-function getNodeNivel(nodo) {
-  return nodo.NIVEL ?? nodo.nivel ?? nodo.PROFUNDIDAD ?? 0;
-}
-
 // ── Resolución de macros tipo {{NOMBRE_TOKEN}} ────────────────────────────
 function resolverTokens(texto, tokens) {
   if (!texto || typeof texto !== 'string') return texto || '';
@@ -126,48 +94,130 @@ function resolverTokens(texto, tokens) {
   });
 }
 
-// ── Formateo del valor de un nodo según su tipo ───────────────────────────
-function renderValorCampo(nodo, payload) {
-  const idEstructura = getNodeStructureId(nodo);
-  const idDato = getNodeFieldId(nodo);
-  const datoMeta = idDato != null ? payload.datos.get(idDato) : null;
-  const tipo = getNodeTipoDato(nodo, datoMeta && datoMeta.meta);
-  const decimales = (datoMeta && datoMeta.meta && datoMeta.meta.DECIMALES) || 2;
+// ── Árbol de la plantilla ─────────────────────────────────────────────────
+/**
+ * Reconstruye el árbol de la estructura plana usando ID_ESTRUCTURA_PADRE.
+ * Retorna los nodos raíz con propiedad `children` agregada.
+ */
+function buildTree(estructura) {
+  const byId = new Map();
+  for (const nodo of estructura) {
+    nodo.children = [];
+    byId.set(nodo.ID, nodo);
+  }
 
+  const roots = [];
+  for (const nodo of estructura) {
+    const parentId = nodo.ID_ESTRUCTURA_PADRE;
+    if (parentId && byId.has(parentId)) {
+      byId.get(parentId).children.push(nodo);
+    } else {
+      roots.push(nodo);
+    }
+  }
+
+  // Ordenar hijos por ORDEN
+  const sortChildren = (nodes) => {
+    nodes.sort((a, b) => (a.ORDEN || 0) - (b.ORDEN || 0));
+    for (const n of nodes) {
+      if (n.children.length) sortChildren(n.children);
+    }
+  };
+  sortChildren(roots);
+
+  return roots;
+}
+
+// ── Resolución del valor de un campo ──────────────────────────────────────
+function getValor(nodo, payload) {
+  const guid = nodo.ID; // GUID del nodo → clave en valoresPorEstructura
   const valores = payload.valoresPorEstructura;
+  const tipoFijo = nodo.TIPO_DATO_FIJO || 0;
+  const tipoDato = nodo.TIPO_DATO || 0;
+  const decimales = nodo.DECIMALES || 2;
 
-  switch (tipo) {
-    case TIPO.TEXTO: {
-      const recs = valores.texto.get(idEstructura) || valores.laboratorioTexto.get(idEstructura);
-      return escapeHtml(pickValor(recs));
+  // Si es dato del sistema (TIPO_DATO_FIJO=1), buscar en tokens
+  if (tipoFijo === TIPO_FIJO.SISTEMA) {
+    const paramSp = nodo.PARAMETRO_SP;
+    if (paramSp && payload.tokens[paramSp] != null) {
+      return escapeHtml(payload.tokens[paramSp]);
     }
-    case TIPO.DECIMAL: {
-      const recs = valores.decimal.get(idEstructura);
-      const v = pickValor(recs);
-      return formatDecimal(v, decimales);
+    return '';
+  }
+
+  // Determinar el tipo efectivo
+  let efectivo = tipoFijo;
+  if (tipoFijo === 0 || tipoFijo == null) {
+    // Usar TIPO_DATO para mapear al bucket correcto
+    switch (tipoDato) {
+      case TIPO_DATO.TEXTO:
+      case TIPO_DATO.TEXTO_LARGO:
+        efectivo = 'texto';
+        break;
+      case TIPO_DATO.NUMERICO:
+      case TIPO_DATO.CALCULADO:
+        efectivo = 'enteros';
+        break;
+      case TIPO_DATO.DECIMAL:
+        efectivo = 'decimal';
+        break;
+      case TIPO_DATO.LISTA_VALORES:
+        efectivo = 'lista';
+        break;
+      case TIPO_DATO.FECHA:
+        efectivo = 'fecha';
+        break;
+      case TIPO_DATO.LOGICO:
+        efectivo = 'enteros';
+        break;
+      default:
+        efectivo = null;
+        break;
     }
-    case TIPO.ENTERO: {
-      const recs = valores.enteros.get(idEstructura);
+
+    // Acceso directo por bucket name
+    if (typeof efectivo === 'string') {
+      const recs = valores[efectivo].get(guid) || valores.laboratorioTexto.get(guid);
+      if (recs && recs.length) {
+        if (efectivo === 'fecha') return formatFecha(pickValor(recs));
+        if (efectivo === 'decimal') return formatDecimal(pickValor(recs), decimales);
+        if (efectivo === 'lista') {
+          return recs
+            .map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? r.DESCRIPCION ?? ''))
+            .filter(Boolean)
+            .join(', ');
+        }
+        return escapeHtml(pickValor(recs));
+      }
+      return '';
+    }
+  }
+
+  // Resolver por TIPO_DATO_FIJO
+  switch (efectivo) {
+    case TIPO_FIJO.DECIMAL: {
+      const recs = valores.decimal.get(guid);
+      return formatDecimal(pickValor(recs), decimales);
+    }
+    case TIPO_FIJO.ENTERO: {
+      const recs = valores.enteros.get(guid);
       const v = pickValor(recs);
       return v == null ? '' : escapeHtml(parseInt(v, 10));
     }
-    case TIPO.FECHA: {
-      const recs = valores.fecha.get(idEstructura);
-      return formatFecha(pickValor(recs));
-    }
-    case TIPO.LISTA: {
-      const recs = valores.lista.get(idEstructura) || [];
-      // Una lista puede tener múltiples valores seleccionados
+    case TIPO_FIJO.SELECCION:
+    case TIPO_FIJO.LISTA: {
+      const recs = valores.lista.get(guid) || [];
       return recs
-        .map((r) => escapeHtml(r.VALOR ?? r.DESCRIPCION ?? r.valor))
+        .map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? r.DESCRIPCION ?? ''))
         .filter(Boolean)
         .join(', ');
     }
-    case TIPO.TABLA: {
-      return renderTabla(nodo, datoMeta, valores.tabla.get(idEstructura) || []);
+    case TIPO_FIJO.TABLA: {
+      const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
+      return renderTabla(datoMeta, valores.tabla.get(guid) || []);
     }
-    case TIPO.IMAGEN: {
-      // Las imágenes a nivel de plantilla suelen venir en STP_DATOS_IMAGENES
+    case TIPO_FIJO.IMAGEN: {
+      const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
       const img = datoMeta && datoMeta.imagenes && datoMeta.imagenes[0];
       if (!img) return '';
       const url = img.IMAGEN
@@ -175,13 +225,17 @@ function renderValorCampo(nodo, payload) {
         : (img.RUTA || '');
       return `<img src="${url}" alt="${escapeHtml(img.NOMBRE || '')}" style="max-width:100%;">`;
     }
-    case TIPO.TEXTO_LIBRE:
     default: {
-      // Si no se reconoce el tipo, intentar todos los buckets en orden
+      // Fallback: probar todos los buckets
       for (const bucket of ['texto', 'decimal', 'enteros', 'fecha', 'lista', 'laboratorioTexto']) {
-        const recs = valores[bucket].get(idEstructura);
+        const recs = valores[bucket].get(guid);
         if (recs && recs.length) {
-          return bucket === 'fecha' ? formatFecha(pickValor(recs)) : escapeHtml(pickValor(recs));
+          if (bucket === 'fecha') return formatFecha(pickValor(recs));
+          if (bucket === 'decimal') return formatDecimal(pickValor(recs), decimales);
+          if (bucket === 'lista') {
+            return recs.map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? '')).filter(Boolean).join(', ');
+          }
+          return escapeHtml(pickValor(recs));
         }
       }
       return '';
@@ -189,24 +243,30 @@ function renderValorCampo(nodo, payload) {
   }
 }
 
-function renderTabla(nodo, datoMeta, filas) {
-  if (!filas || filas.length === 0) return '<em>(sin datos)</em>';
+function pickValor(records) {
+  if (!records || records.length === 0) return null;
+  const rec = records[0];
+  // Intentar todas las variantes de nombre de valor
+  return (
+    rec.VALOR ?? rec.VALOR_TEXTO ?? rec.VALOR_ENTEROS ??
+    rec.VALOR_DECIMAL ?? rec.VALOR_FECHA ?? rec.VALOR_LISTA ?? null
+  );
+}
+
+function renderTabla(datoMeta, filas) {
+  if (!filas || filas.length === 0) return '';
   const columnasMeta = (datoMeta && datoMeta.camposTabla) || [];
 
-  // Columnas únicas detectadas en las filas
   const columnasDetectadas = new Set();
   for (const f of filas) {
     if (f.COLUMNA != null) columnasDetectadas.add(f.COLUMNA);
   }
   const columnas = Array.from(columnasDetectadas).sort((a, b) => a - b);
+  const filasIds = Array.from(new Set(filas.map(f => f.FILA))).sort((a, b) => a - b);
 
-  // Filas únicas
-  const filasIds = Array.from(new Set(filas.map((f) => f.FILA))).sort((a, b) => a - b);
-
-  // Headers
   let html = '<table class="tabla-dinamica"><thead><tr>';
   for (const col of columnas) {
-    const meta = columnasMeta.find((c) => (c.ID_DATO_COLUMNA ?? c.ORDEN) === col);
+    const meta = columnasMeta.find(c => (c.ID_DATO_COLUMNA ?? c.ORDEN) === col);
     html += `<th>${escapeHtml((meta && (meta.NOMBRE || meta.DESCRIPCION)) || `Col ${col}`)}</th>`;
   }
   html += '</tr></thead><tbody>';
@@ -214,8 +274,8 @@ function renderTabla(nodo, datoMeta, filas) {
   for (const filaId of filasIds) {
     html += '<tr>';
     for (const col of columnas) {
-      const celda = filas.find((f) => f.FILA === filaId && f.COLUMNA === col);
-      html += `<td>${escapeHtml(celda ? celda.VALOR : '')}</td>`;
+      const celda = filas.find(f => f.FILA === filaId && f.COLUMNA === col);
+      html += `<td>${escapeHtml(celda ? (celda.VALOR ?? celda.VALOR_TEXTO ?? '') : '')}</td>`;
     }
     html += '</tr>';
   }
@@ -223,43 +283,84 @@ function renderTabla(nodo, datoMeta, filas) {
   return html;
 }
 
-// ── Render de la plantilla completa ──────────────────────────────────────
-function renderEstructura(payload) {
-  const estructura = payload.plantilla.estructura || [];
+// ── Recorrido del árbol (depth-first) ─────────────────────────────────────
+function renderNodo(nodo, payload, depth) {
+  const origen = nodo.ORIGEN;
+  const nombre = escapeHtml(nodo.NOMBRE || nodo.DESCRIPCION || '');
   let html = '';
-  for (const nodo of estructura) {
-    const idDato = getNodeFieldId(nodo);
-    const datoMeta = idDato != null ? payload.datos.get(idDato) : null;
-    const tipo = getNodeTipoDato(nodo, datoMeta && datoMeta.meta);
-    const nivel = getNodeNivel(nodo);
-    const nombre = escapeHtml(getNodeName(nodo, datoMeta && datoMeta.meta));
 
-    // Sección / grupo: sólo encabezado
-    if (tipo === TIPO.SECCION || idDato == null) {
-      const tag = nivel <= 1 ? 'h2' : 'h3';
-      if (nombre) html += `<${tag} class="seccion">${nombre}</${tag}>`;
-      continue;
+  // Pestaña (sección de nivel superior)
+  if (origen === 3) {
+    if (nombre) html += `<h2 class="seccion">${nombre}</h2>`;
+    for (const child of nodo.children) {
+      html += renderNodo(child, payload, depth + 1);
+    }
+    return html;
+  }
+
+  // Grupo (subsección)
+  if (origen === 2) {
+    if (nombre) {
+      const tag = depth <= 2 ? 'h3' : 'h4';
+      html += `<${tag} class="seccion">${nombre}</${tag}>`;
+    }
+    for (const child of nodo.children) {
+      html += renderNodo(child, payload, depth + 1);
+    }
+    return html;
+  }
+
+  // Dato (campo con valor)
+  if (origen === 1) {
+    const tipoFijo = nodo.TIPO_DATO_FIJO || 0;
+
+    // Sección decorativa (TIPO_DATO_FIJO=7)
+    if (tipoFijo === TIPO_FIJO.SECCION) {
+      if (nombre) html += `<h4 class="seccion">${nombre}</h4>`;
+      for (const child of nodo.children) {
+        html += renderNodo(child, payload, depth + 1);
+      }
+      return html;
     }
 
-    // Texto libre de la plantilla
-    if (tipo === TIPO.TEXTO_LIBRE) {
-      const literal = nodo.VALOR_LITERAL ?? nodo.DESCRIPCION ?? '';
+    // Texto libre (TIPO_DATO_FIJO=8)
+    if (tipoFijo === TIPO_FIJO.TEXTO_LIBRE) {
+      const literal = nodo.DESCRIPCION || '';
       html += `<p class="texto-libre">${resolverTokens(literal, payload.tokens)}</p>`;
-      continue;
+      return html;
     }
 
     // Campo con valor
-    const valor = renderValorCampo(nodo, payload);
-    if (tipo === TIPO.TABLA || tipo === TIPO.IMAGEN) {
-      html += `<div class="campo-block"><b>${nombre}</b>${valor ? `<div>${valor}</div>` : ''}</div>`;
+    const valor = getValor(nodo, payload);
+    if (tipoFijo === TIPO_FIJO.TABLA || tipoFijo === TIPO_FIJO.IMAGEN) {
+      if (valor) {
+        html += `<div class="campo-block"><b>${nombre}</b><div>${valor}</div></div>`;
+      }
     } else {
       html += `<div class="campo-line"><b>${nombre}:</b> ${valor || ''}</div>`;
     }
+
+    // Un dato puede tener sub-datos (raro pero posible)
+    for (const child of nodo.children) {
+      html += renderNodo(child, payload, depth + 1);
+    }
+    return html;
+  }
+
+  return html;
+}
+
+function renderEstructura(payload) {
+  const estructura = payload.plantilla.estructura || [];
+  const tree = buildTree(estructura);
+  let html = '';
+  for (const root of tree) {
+    html += renderNodo(root, payload, 0);
   }
   return html;
 }
 
-// ── Bloques específicos: identificación, diagnósticos, órdenes, etc. ─────
+// ── Bloques específicos ──────────────────────────────────────────────────
 function renderEncabezado(payload) {
   const ips = payload.ips || {};
   const sede = payload.sede || {};
@@ -267,9 +368,9 @@ function renderEncabezado(payload) {
     ? bytesToDataUrl(payload.logoIps.LOGO, payload.logoIps.TIPO_MIME || 'image/png')
     : '';
 
-  const razonSocial = ips.RAZON_SOCIAL || ips.razon_social || '';
-  const sigla = ips.SIGLA || ips.sigla || '';
-  const nombreSede = sede.NOMBRE || sede.nombre || '';
+  const razonSocial = ips.RAZON_SOCIAL || '';
+  const sigla = ips.SIGLA || '';
+  const nombreSede = sede.NOMBRE || '';
   const direccion = sede.DIRECCION || ips.DIRECCION || '';
   const telefono = sede.TELEFONO || ips.TELEFONO || '';
 
@@ -305,7 +406,7 @@ function renderDiagnosticos(payload) {
     html += `<tr>
       <td>${escapeHtml(d.CODIGO_CIE)}</td>
       <td>${escapeHtml(d.DESCRIPCION_CIE)}</td>
-      <td>${escapeHtml(d.DESCRIPCION_TIPO_DX_PPAL || d.ID_TIPO_DIAGNOSTICO || '')}</td>
+      <td>${escapeHtml(d.DESCRIPCION_TIPO_DX_PPAL || '')}</td>
     </tr>`;
   }
   html += '</tbody></table>';
@@ -339,7 +440,6 @@ function renderOrdenesYFormulacion(payload) {
   const formulacionRS = payload.clinico.formulacion || [];
   let html = '';
 
-  // Las QRY_* devuelven varios recordsets; renderizamos cada uno como tabla
   const renderRecordsets = (titulo, recordsets) => {
     let out = '';
     let primero = true;
@@ -374,7 +474,7 @@ function renderFirma(payload) {
   const nombre = [
     prof.PRIMER_NOMBRE, prof.SEGUNDO_NOMBRE, prof.PRIMER_APELLIDO, prof.SEGUNDO_APELLIDO,
   ].filter(Boolean).join(' ');
-  const ident = `${prof.ID_TIPO_IDENTIFICACION || ''} ${prof.NUMERO_IDENTIFICACION || ''}`.trim();
+  const ident = `${prof.TIPO_IDENTIFICACION || prof.ID_TIPO_IDENTIFICACION || ''} ${prof.NUMERO_IDENTIFICACION || ''}`.trim();
 
   const firmaRec = (payload.profesional.firma || [])[0];
   const firmaImg = firmaRec && firmaRec.IMAGEN
@@ -392,7 +492,7 @@ function renderFirma(payload) {
   `;
 }
 
-// ── Estilos derivados de STP_PARAMETROS_IMPRESION ────────────────────────
+// ── Estilos ──────────────────────────────────────────────────────────────
 function buildEstilos(parametros) {
   const p = (parametros && parametros[0]) || {};
   const tamanio = p.TAMANIO_FUENTE || 9;
@@ -409,9 +509,11 @@ function buildEstilos(parametros) {
     .header-table td { vertical-align: middle; padding: 2px 4px; border: none; }
     .header-center { text-align: center; }
     .header-right { text-align: right; font-size: 8px; }
-    h2.seccion { font-size: ${tamanio + 1}px; text-transform: uppercase; text-decoration: underline; margin: 10px 0 4px 0; }
-    h3.seccion { font-size: ${tamanio}px; text-transform: uppercase; text-decoration: underline; margin: 6px 0 3px 0; }
+    h2.seccion { font-size: ${tamanio + 2}px; text-transform: uppercase; text-decoration: underline; margin: 12px 0 4px 0; page-break-after: avoid; }
+    h3.seccion { font-size: ${tamanio + 1}px; text-transform: uppercase; text-decoration: underline; margin: 8px 0 3px 0; page-break-after: avoid; }
+    h4.seccion { font-size: ${tamanio}px; font-weight: bold; margin: 6px 0 2px 0; page-break-after: avoid; }
     .campo-line { margin: 1px 0; }
+    .campo-line b { min-width: 140px; display: inline-block; }
     .campo-block { margin: 4px 0; }
     .texto-libre { margin: 4px 0; }
     .tabla-dinamica { width: 100%; border-collapse: collapse; margin: 4px 0; }
@@ -425,23 +527,21 @@ function buildEstilos(parametros) {
 
 /**
  * Genera el HTML completo a partir del `printPayload`.
- *
- * @param {object} payload  Resultado de `historia.print.service.imprimirAtencion()`
- * @returns {{ html: string, parametros: object }}
  */
 function renderHtml(payload) {
   const estilos = buildEstilos(payload.parametros);
+  const plantillaNombre = (payload.plantilla.meta && (payload.plantilla.meta.NOMBRE || payload.plantilla.meta.IDENTIFICADOR)) || 'HISTORIA CLÍNICA';
 
   const cuerpo = `
     ${renderEncabezado(payload)}
-    <h1 class="seccion" style="text-align:center">${escapeHtml(payload.plantilla.meta && (payload.plantilla.meta.NOMBRE || payload.plantilla.meta.IDENTIFICADOR) || 'HISTORIA CLÍNICA')}</h1>
+    <h1 class="seccion" style="text-align:center">${escapeHtml(plantillaNombre)}</h1>
     ${renderEstructura(payload)}
     ${renderAlergias(payload)}
     ${renderAntecedentes(payload)}
     ${renderDiagnosticos(payload)}
     ${renderOrdenesYFormulacion(payload)}
     ${renderFirma(payload)}
-    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || payload.atencion.ID_ATENCION || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
+    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
   `;
 
   const html = `<!DOCTYPE html>

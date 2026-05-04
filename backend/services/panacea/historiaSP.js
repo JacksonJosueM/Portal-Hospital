@@ -4,13 +4,14 @@
  * ════════════════════════════════════════════════════════════════════════════
  *
  *  Cada función reproduce 1:1 una llamada SP de la traza original de Panacea.
- *  No se interpretan los recordsets aquí; eso es responsabilidad del
- *  orquestador `historia.print.service.js`.
+ *  Los resultados se normalizan a UPPER_SNAKE_CASE mediante normalizeColumns
+ *  para compatibilidad con el motor de render.
  * ════════════════════════════════════════════════════════════════════════════
  */
 
 const { sql, panaceaPool } = require('../../config/db');
 const { applyAudit, getIdIps } = require('./auditContext');
+const { normalizeRecordset, normalizeRecordsets, normalizeFirst } = require('./normalizeColumns');
 
 async function pool() {
   return panaceaPool;
@@ -32,7 +33,7 @@ async function getParametrosImpresion(idIps = getIdIps()) {
     .input('PAPEL_ORDEN', sql.SmallInt, null)
     .input('ID_IPS', sql.SmallInt, idIps);
   const result = await r.execute('Historia.STP_PARAMETROS_IMPRESION');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 // ── Atención (objeto principal) ───────────────────────────────────────────
@@ -40,7 +41,7 @@ async function getAtencion(idAtencion) {
   const p = await pool();
   const r = applyAudit(p.request(), 3).input('ID', sql.BigInt, idAtencion);
   const result = await r.execute('Historia.STM_ATENCIONES');
-  return result.recordset[0] || null;
+  return normalizeFirst(result.recordset);
 }
 
 async function getAtencionBasico(idAtencion, op = 5) {
@@ -52,7 +53,7 @@ async function getAtencionBasico(idAtencion, op = 5) {
     .input('UBICACION', sql.VarChar(100), null)
     .input('ID_IPS', sql.SmallInt, null);
   const result = await r.execute('Historia.STM_ATENCIONES_BASICO');
-  return result.recordset[0] || null;
+  return normalizeFirst(result.recordset);
 }
 
 async function getConsultaAtenciones(idSede, op = 5) {
@@ -61,7 +62,7 @@ async function getConsultaAtenciones(idSede, op = 5) {
     .input('ID_SEDE', sql.SmallInt, idSede)
     .input('OPERACION', sql.SmallInt, op)
     .execute('Historia.QRY_CONSULTA_ATENCIONES');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function poblarTokenAtencion({
@@ -92,7 +93,7 @@ async function poblarTokenAtencion({
     .input('OPERACION', sql.SmallInt, 1)
     .input('IMPRIME_RESULTADO', sql.SmallInt, imprimeResultado)
     .execute('Historia.QRY_POBLAR_TOKEN_ATENCION');
-  return result.recordsets;
+  return normalizeRecordsets(result.recordsets);
 }
 
 // ── Auditoría de copias impresas ──────────────────────────────────────────
@@ -105,7 +106,7 @@ async function getCopiasImpresion(idAtencion) {
     .input('ID_FORMATO', sql.SmallInt, null)
     .input('NUMERO_COPIAS', sql.SmallInt, null);
   const result = await r.execute('Historia.STM_COPIAS_IMPRESION');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function registrarCopiaImpresion(idAtencion, numeroCopias = 1) {
@@ -117,7 +118,7 @@ async function registrarCopiaImpresion(idAtencion, numeroCopias = 1) {
     .input('ID_FORMATO', sql.SmallInt, null)
     .input('NUMERO_COPIAS', sql.SmallInt, numeroCopias);
   const result = await r.execute('Historia.STM_COPIAS_IMPRESION');
-  return result.recordset[0] || null;
+  return normalizeFirst(result.recordset);
 }
 
 // ── Catálogos clínicos ────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ async function getAlergiasPaciente(idPaciente, idIps = getIdIps()) {
     .input('FECHA_REGISTRO', sql.DateTime, null)
     .input('ID_IPS', sql.SmallInt, idIps);
   const result = await r.execute('Historia.STM_PACIENTE_ALERGIAS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getAntecedentesPaciente(idPaciente, idIps = getIdIps()) {
@@ -156,7 +157,7 @@ async function getAntecedentesPaciente(idPaciente, idIps = getIdIps()) {
     .input('JUSTIFICACION', sql.VarChar(sql.MAX), null)
     .input('FECHA_INACTIVACION', sql.DateTime, null);
   const result = await r.execute('Historia.STM_PACIENTE_ANTECEDENTES');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getDiagnosticos(idAtencion) {
@@ -165,7 +166,7 @@ async function getDiagnosticos(idAtencion) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute('Historia.STM_DATOS_DIAGNOSTICOS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getSintomas(idAtencion) {
@@ -174,7 +175,7 @@ async function getSintomas(idAtencion) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute('Historia.STM_DATOS_SINTOMAS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 // ── Datos por tipo (Op=4 lee toda la atención) ────────────────────────────
@@ -184,7 +185,7 @@ async function getDatosTipo(spName, idAtencion, op = 4) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute(`Historia.${spName}`);
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 const getDatosDecimal = (idAtencion) => getDatosTipo('STM_DATOS_DECIMAL', idAtencion, 4);
@@ -201,7 +202,7 @@ async function getCalculosRiesgo(idAtencion) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute('Historia.STM_CALCULOS_RIESGO');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getOrdenesImpresion(idAtencion) {
@@ -210,7 +211,7 @@ async function getOrdenesImpresion(idAtencion) {
     .input('ID_ATENCION', sql.BigInt, idAtencion)
     .input('OPERACION', sql.SmallInt, 0)
     .execute('Historia.QRY_ORDENES_IMPRESION');
-  return result.recordsets;
+  return normalizeRecordsets(result.recordsets);
 }
 
 async function getNotasAtencion(idAtencion) {
@@ -219,7 +220,7 @@ async function getNotasAtencion(idAtencion) {
     .input('ID', sql.BigInt, null)
     .input('ID_ATENCION', sql.BigInt, idAtencion);
   const result = await r.execute('Historia.STM_ATENCION_NOTAS');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getGraficasImagen(idAtencion) {
@@ -234,7 +235,7 @@ async function getGraficasImagen(idAtencion) {
     .input('TIPO_MIME', sql.VarChar(100), null)
     .input('ID_IPS', sql.SmallInt, null);
   const result = await r.execute('Historia.STM_GRAFICA_IMAGEN_ATENCION');
-  return result.recordset;
+  return normalizeRecordset(result.recordset);
 }
 
 async function getFormulacionMedica(idAtencion) {
@@ -243,7 +244,7 @@ async function getFormulacionMedica(idAtencion) {
     .input('ID_ATENCION', sql.BigInt, idAtencion)
     .input('OPERACION', sql.SmallInt, 1)
     .execute('Historia.QRY_IMPRIME_FORMULACION_MEDICA');
-  return result.recordsets;
+  return normalizeRecordsets(result.recordsets);
 }
 
 module.exports = {

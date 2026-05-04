@@ -7,31 +7,8 @@
  *  aplicación Silverlight de Panacea ejecuta cuando un médico imprime una
  *  historia clínica (ver traza original sobre la atención 359695).
  *
- *  La traza marca dos secciones:
- *
- *    1) BLOQUE FIJO POR ATENCIÓN (siempre se llama, en este orden):
- *       PARAMETROS_IMPRESION → STM_ATENCIONES → STM_COPIAS_IMPRESION (read+insert)
- *       → STP_PLANTILLAS → QRY_MODULOS_FUNCIONALES
- *       → STM_ATENCIONES_BASICO (5 y 3) → QRY_POBLAR_TOKEN_ATENCION
- *       → STM_PACIENTE_ALERGIAS → STM_DATOS_DIAGNOSTICOS → STM_DATOS_SINTOMAS
- *       → STP_SEDES → QRY_PRIMER_LOGO_IPS → QRY_CONSULTA_ATENCIONES
- *       → STP_IPS → QRY_ESTRUCTURA_PLANA_PLANTILLA
- *       → Laboratorio.STM_DATOS_TEXTO → STM_PACIENTE_ANTECEDENTES
- *       → STM_DATOS_DECIMAL/ENTEROS/TEXTO/TABLA/LISTA/FECHA
- *
- *    2) BUCLE POR `id_dato` referenciado en la estructura:
- *       STP_DATOS → STP_DATOS_CAMPOS_TABLAS → STP_DATOS_IMAGENES
- *       → STP_RANGOS_HISTORIA × 10 (tipos 2,3,4,5,6,7,8,9,10,14)
- *       → STP_DATOS_VALORES
- *
- *    3) CIERRE:
- *       STM_CALCULOS_RIESGO → QRY_ORDENES_IMPRESION → STM_ATENCION_NOTAS
- *       → STM_GRAFICA_IMAGEN_ATENCION → Odontologia.STM_TRATAMIENTOS
- *       → QRY_IMPRIME_FORMULACION_MEDICA
- *       → STP_USUARIO_IMAGENES → STP_USUARIOS
- *
- *  El resultado es un `printPayload` que el motor de render
- *  (`plantilla.render.js`) consume para producir HTML.
+ *  Todos los SPs devuelven columnas normalizadas a UPPER_SNAKE_CASE
+ *  gracias a la capa de wrappers (panacea/*SP.js + normalizeColumns.js).
  * ════════════════════════════════════════════════════════════════════════════
  */
 
@@ -46,15 +23,20 @@ const { getIdIps } = require('./panacea/auditContext');
 /**
  * Recorre la estructura plana de la plantilla y devuelve los IDs de dato
  * únicos que se usan para renderizar el documento.
+ *
+ * Tras la normalización, la estructura tiene columnas como:
+ *   ID_ESTRUCTURA  (int)  — identificador numérico del dato/campo
+ *   ORIGEN         (int)  — 1=dato, 2=grupo, 3=sección
+ *   ID             (GUID) — PK del nodo en la estructura
  */
 function extraerIdsDatoDeEstructura(estructura) {
   if (!Array.isArray(estructura)) return [];
   const ids = new Set();
   for (const nodo of estructura) {
-    // El nombre exacto de la columna depende del SP; cubrimos las variantes
-    // más comunes (ID_DATO, IdDato, id_dato).
-    const idDato = nodo.ID_DATO ?? nodo.IdDato ?? nodo.id_dato ?? nodo.ID_ORIGEN ?? null;
-    if (idDato != null && Number.isInteger(idDato)) ids.add(idDato);
+    // Solo los nodos con ORIGEN=1 son datos; ORIGEN=2 son grupos, ORIGEN=3 secciones
+    if (nodo.ORIGEN !== 1) continue;
+    const idDato = nodo.ID_ESTRUCTURA;
+    if (idDato != null && Number.isInteger(idDato) && idDato > 0) ids.add(idDato);
   }
   return Array.from(ids);
 }
@@ -85,21 +67,21 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     throw new Error(`Atención ${idAtencion} no encontrada en Panacea`);
   }
 
-  // Resolver IDs derivados de la atención
-  const idIps = atencion.ID_IPS ?? atencion.id_ips ?? idIpsDefault;
-  const idSede = atencion.ID_SEDE ?? atencion.id_sede ?? 1;
-  const idPaciente = atencion.ID_PACIENTE ?? atencion.id_paciente;
-  const idPrestador = atencion.ID_PRESTADOR ?? atencion.id_prestador;
-  const idEspecialidad = atencion.ID_ESPECIALIDAD ?? atencion.id_especialidad ?? 0;
-  const idProcedimiento = atencion.ID_PROCEDIMIENTO ?? atencion.id_procedimiento ?? 0;
-  const idLegalizacionProc = atencion.ID_LEGALIZACION_PROCEDIMIENTO ?? atencion.id_legalizacion_procedimiento ?? 0;
-  const idAutorizacion = atencion.ID_AUTORIZACION ?? atencion.id_autorizacion ?? 0;
-  const idAdmision = atencion.ID_ADMISION ?? atencion.id_admision ?? 0;
-  const idAiu = atencion.ID_ATENCION_INICIAL_URGENCIAS ?? atencion.id_aiu ?? 0;
-  const idPlantilla = atencion.ID_PLANTILLA ?? atencion.id_plantilla;
+  // Resolver IDs derivados de la atención (ya normalizados a UPPER_SNAKE_CASE)
+  const idIps = atencion.ID_IPS ?? idIpsDefault;
+  const idSede = atencion.ID_SEDE ?? 1;
+  const idPaciente = atencion.ID_PACIENTE;
+  const idPrestador = atencion.ID_PRESTADOR;
+  const idEspecialidad = atencion.ID_ESPECIALIDAD ?? 0;
+  const idProcedimiento = atencion.ID_PROCEDIMIENTO ?? 0;
+  const idLegalizacionProc = atencion.ID_LEGALIZACION_PROCEDIMIENTO ?? 0;
+  const idAutorizacion = atencion.ID_AUTORIZACION ?? 0;
+  const idAdmision = atencion.ID_ADMISION ?? 0;
+  const idAiu = atencion.ID_ATENCION_INICIAL_URGENCIAS ?? 0;
+  const idPlantilla = atencion.ID_PLANTILLA;
 
   if (!idPlantilla) {
-    throw new Error(`Atención ${idAtencion} no tiene ID_PLANTILLA asociada`);
+    throw new Error(`Atención ${idAtencion} no tiene ID_PLANTILLA asociada (columnas: ${Object.keys(atencion).join(', ')})`);
   }
 
   // ── PASO 1 · Auditoría de copia impresa (read + insert) ──────────────
@@ -136,9 +118,8 @@ async function imprimirAtencion(idAtencion, opts = {}) {
   const tokens = {};
   for (const rs of tokensRecordsets || []) {
     for (const row of rs || []) {
-      // Cubrir variantes comunes de nombres de columnas
-      const key = row.NOMBRE ?? row.TOKEN ?? row.MACRO ?? row.nombre;
-      const val = row.VALOR ?? row.VALUE ?? row.valor;
+      const key = row.NOMBRE ?? row.TOKEN ?? row.MACRO;
+      const val = row.VALOR ?? row.VALUE;
       if (key != null) tokens[String(key)] = val;
     }
   }
@@ -184,15 +165,18 @@ async function imprimirAtencion(idAtencion, opts = {}) {
   // ── PASO 5 · Por cada id_dato referenciado en la estructura,
   //            descargar metadatos (loop de la traza) ──────────────────
   const idsDato = extraerIdsDatoDeEstructura(estructura);
+  console.log(`📄 [HistoriaPrint] Estructura: ${estructura.length} nodos, ${idsDato.length} datos dinámicos`);
   const metadataList = await Promise.all(idsDato.map((id) => Dinamico.getMetadataDato(id)));
   const datosMeta = new Map();
   for (const m of metadataList) datosMeta.set(m.idDato, m);
 
-  // ── PASO 6 · Indexar valores por id_dato para acceso O(1) ────────────
+  // ── PASO 6 · Indexar valores por ID_ESTRUCTURA_PLANTILLA para acceso O(1) ──
+  // Los STM_DATOS_* ahora tienen columnas normalizadas: ID_ESTRUCTURA_PLANTILLA (GUID).
+  // El render busca los valores por el GUID del nodo de la estructura (nodo.ID).
   function indexBy(records, key = 'ID_ESTRUCTURA_PLANTILLA') {
     const map = new Map();
     for (const r of records || []) {
-      const k = r[key] ?? r[key.toLowerCase()];
+      const k = r[key];
       if (k == null) continue;
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(r);
@@ -200,16 +184,14 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     return map;
   }
 
-  // Los STM_DATOS_* normalmente vienen ligados al ID_ESTRUCTURA_PLANTILLA
-  // (que apunta a un nodo de la estructura). El render usa este índice.
   const valoresPorEstructura = {
-    decimal: indexBy(datosDecimal, 'ID_ESTRUCTURA_PLANTILLA'),
-    enteros: indexBy(datosEnteros, 'ID_ESTRUCTURA_PLANTILLA'),
-    texto: indexBy(datosTexto, 'ID_ESTRUCTURA_PLANTILLA'),
-    lista: indexBy(datosLista, 'ID_ESTRUCTURA_PLANTILLA'),
-    fecha: indexBy(datosFecha, 'ID_ESTRUCTURA_PLANTILLA'),
-    tabla: indexBy(datosTabla, 'ID_ESTRUCTURA_PLANTILLA'),
-    laboratorioTexto: indexBy(labDatosTexto, 'ID_ESTRUCTURA_PLANTILLA'),
+    decimal: indexBy(datosDecimal),
+    enteros: indexBy(datosEnteros),
+    texto: indexBy(datosTexto),
+    lista: indexBy(datosLista),
+    fecha: indexBy(datosFecha),
+    tabla: indexBy(datosTabla),
+    laboratorioTexto: indexBy(labDatosTexto),
   };
 
   // ── PASO 7 · Bloque de cierre: riesgo, órdenes, notas, gráficas,
@@ -233,12 +215,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
   // ── PASO 8 · Profesional + firma ─────────────────────────────────────
   let profesional = null;
   let firma = [];
-  const userName =
-    atencion.USER_NAME ??
-    atencion.USUARIO ??
-    atencion.user_name ??
-    atencion.USUARIO_CREA ??
-    null;
+  const userName = atencion.USUARIO ?? atencion.USER_NAME ?? null;
   if (userName) {
     [profesional, firma] = await Promise.all([
       Administracion.getUsuario(userName),
