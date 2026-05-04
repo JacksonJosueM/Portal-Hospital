@@ -15,7 +15,10 @@ La plataforma utiliza una arquitectura Cliente-Servidor tradicional, dividida en
     *   Desarrollado en **Node.js** con el framework **Express.js**.
     *   Actúa como la API o "puente" de comunicación. Se encarga de procesar la lógica de negocio, reglas de autenticación, límite de peticiones (Rate Limit) y generación de archivos antes de interactuar con la Base de Datos.
 *   **Base de Datos (DB):**
-    *   Conectividad estricta a **SQL Server** usando una visión intermedia (Vistas) llamada `vw_pacientes_portal` para mantener la base de datos original (`Panacea`) intacta y segura. El backend interactúa enviando instrucciones exactas por la librería `mssql` de manera cifrada.
+    *   El backend mantiene **dos pools de conexión a SQL Server** separados:
+        *   `portalPool` → BD `PortalPacientes` con vistas planas (`vw_pacientes_portal`, `vw_atenciones_portal`) y la tabla `codigos_otp`. Se usa para login, listado de historias y OTP.
+        *   `panaceaPool` → BD `PANACEA` con los esquemas nativos (`Historia.*`, `Dinamico.*`, `Parametrizacion.*`, `Administracion.*`, `Laboratorio.*`, `Odontologia.*`). Se usa al imprimir una historia: el portal ejecuta **exactamente la misma secuencia de stored procedures** que la aplicación Silverlight de Panacea, garantizando contenido idéntico y dejando la misma huella en SQL Profiler con un usuario auditable (`Portal_Pacientes`).
+    *   Toda interacción ocurre por la librería `mssql` con consultas pre-compiladas y conexión cifrada.
 
 ### El Flujo de Autenticación (Login)
 1. El paciente digita su **tipo de documento**, **número** y **fecha de nacimiento**.
@@ -56,15 +59,29 @@ El mecanismo que otorga el acceso final funciona del siguiente modo (Codificado 
 
 ---
 
-## 4. Archivos Digitales y Generación Compleja de PDFs
+## 4. Archivos Digitales y Generación Compleja de PDFs (Pipeline estilo Panacea)
 
-El paciente puede revisar sus historias clínicas ("listar") y pedir que se formen como un PDF único ("descargar"). Es el flujo más pesado, pero el más sofisticado, ubicado principalmente en `pdf.service.js`:
+El paciente puede revisar sus historias clínicas ("listar") y pedir que se formen como un PDF único ("descargar"). Este es el flujo más sofisticado y se compone de cinco capas que **replican fielmente** lo que la aplicación Silverlight de Panacea hace internamente.
 
-1.  **Modelo y Compilación en Memoria (Puppeteer):** La app no almacena los PDFs previamente en disco (ahorrando cientos de Gigabytes a futuro). En su lugar, todos se generan **al vuelo** y directamente *en memoria RAM*. Solo cuando se generan se mandan para ser descargados y luego se destruyen, mejorando la Ley de Privacidad de los datos.
-2.  **El Formato Institucional Panacea:** En los recursos internos (`templates/historia_clinica.html`) existe una plantilla HTML prediseñada que emula la maqueta obligatoria del formato Panacea. Contiene espacios vacíos o variables bajo el formato `{{placeholder}}`.
-3.  **Extrapolación (Mapping):** El sistema toma campos de la BD como: anamnesis, motivos, medicamentos, signos vitales, etc. Y en tiempo real reemplaza el HTML con estos valores exactos del paciente.
-4.  **Incrustación de Imágenes Segura:** Convierte el logo institucional (`logo.png`) a formato **Base64** empaquetándolo dentro del HTML mismo para evitar peticiones online externas durante la renderización.
-5.  **Motor Rendering (Chromium Headless):** Una vez que el archivo HTML se conformó dentro de NodeJS, la capa `Puppeteer` dispara instantáneamente un subproceso silencioso del navegador *"Google Chrome/Chromium"* que toma el HTML, lo procesa y lo exporta perfectamente en forma de un documento de impresión (`Margin, Formato Carta, Background`). El resultado es un buffer que viaja como PDF y se descarga para el paciente.
+1.  **Orquestador (`services/historia.print.service.js`):** Recibe el `id_atencion` y ejecuta en el orden exacto de la traza original ~80 stored procedures sobre la BD `PANACEA`:
+    *   Auditoría y parámetros: `Historia.STP_PARAMETROS_IMPRESION`, `Historia.STM_COPIAS_IMPRESION` (registra una copia impresa).
+    *   Atención: `Historia.STM_ATENCIONES`, `STM_ATENCIONES_BASICO`, `QRY_CONSULTA_ATENCIONES`, `QRY_POBLAR_TOKEN_ATENCION` (resuelve los macros tipo `{{paciente.nombre}}`).
+    *   Plantilla: `Dinamico.STP_PLANTILLAS` y `Dinamico.QRY_ESTRUCTURA_PLANA_PLANTILLA` (la espina dorsal del render).
+    *   Catálogos clínicos del paciente: alergias, antecedentes, diagnósticos, síntomas, cálculos de riesgo, notas, gráficas, tratamientos odontológicos.
+    *   Datos por tipo: `STM_DATOS_DECIMAL`, `_ENTEROS`, `_TEXTO`, `_LISTA`, `_FECHA`, `_TABLA`, además de `Laboratorio.STM_DATOS_TEXTO`.
+    *   Para cada `id_dato` referenciado en la plantilla: bucle de `Dinamico.STP_DATOS`, `STP_DATOS_CAMPOS_TABLAS`, `STP_DATOS_IMAGENES`, `STP_RANGOS_HISTORIA` (10 tipos) y `STP_DATOS_VALORES`.
+    *   Profesional: `Administracion.STP_USUARIOS` y `STP_USUARIO_IMAGENES` (firma).
+    *   Sede e IPS: `Parametrizacion.STP_SEDES`, `STP_IPS`, `QRY_PRIMER_LOGO_IPS`.
+
+    Cada `exec` se hace inyectando los parámetros transversales que Panacea exige (`@Usuario`, `@IP_Origen`, `@Timestamp`, `@Operacion`) — un helper centralizado (`services/panacea/auditContext.js`) los lee de variables de entorno y los aplica de manera idéntica en cada llamada.
+
+2.  **Motor de Render Dinámico (`services/plantilla.render.js`):** Recorre la estructura plana devuelta por `QRY_ESTRUCTURA_PLANA_PLANTILLA` en orden. Por cada nodo decide cómo formatearlo según su `ID_TIPO_DATO_FIJO` (texto, decimal, entero, fecha, lista, tabla, imagen, sección, texto libre) y resuelve los macros con el diccionario que retornó `QRY_POBLAR_TOKEN_ATENCION`. El resultado es un HTML autocontenido cuyos márgenes, tamaño de fuente e interlineado salen de `STP_PARAMETROS_IMPRESION` (igual que en Panacea).
+
+3.  **Renderizado a PDF (`services/pdf.service.js` + Puppeteer):** Un pool singleton de Chromium headless toma el HTML y produce un PDF en memoria. **Nada se persiste en disco.** Solo el buffer viaja al cliente y luego se libera, cumpliendo la Ley de Privacidad de los datos.
+
+4.  **Imágenes Embebidas:** El logo de la IPS y la firma del médico llegan desde Panacea como bytes (`Parametrizacion.QRY_PRIMER_LOGO_IPS`, `Administracion.STP_USUARIO_IMAGENES`) y se insertan en el HTML como `data:image/...;base64`, evitando peticiones externas durante el render.
+
+5.  **Validaciones de Seguridad Previas:** Antes de invocar el orquestador el controlador valida (a) el JWT del paciente, (b) que el OTP de descarga sea correcto y dentro de los 5 minutos. Solo después se inicia el pipeline costoso.
 
 ### Conclusión Técnica y Soporte IT.
 

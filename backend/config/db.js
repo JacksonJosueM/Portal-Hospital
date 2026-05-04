@@ -1,41 +1,79 @@
 const sql = require('mssql');
 require('dotenv').config();
 
-const dbConfig = {
+// ════════════════════════════════════════════════════════════════════════════
+//  POOLS DE CONEXIÓN
+// ════════════════════════════════════════════════════════════════════════════
+//
+//  • portalPool   → BD propia del portal (codigos_otp y vistas auxiliares
+//                    como vw_pacientes_portal, etc.). Sirve también como pool
+//                    legacy a través del export `poolPromise`.
+//  • panaceaPool  → Conexión directa a la BD PANACEA para ejecutar los SPs
+//                    nativos (Historia.*, Dinamico.*, Parametrizacion.*,
+//                    Administracion.*, Laboratorio.*, Odontologia.*) tal y
+//                    como lo hace la aplicación Silverlight de Panacea.
+//
+//  Ambas conexiones usan el mismo servidor por defecto (las dos BDs viven
+//  en el Servidor 1 = 10.10.0.10) pero se pueden separar si se desea.
+// ════════════════════════════════════════════════════════════════════════════
+
+const sharedOptions = {
+  options: {
+    encrypt: true,
+    trustServerCertificate: true,
+  },
+  requestTimeout: 60000,
+  connectionTimeout: 30000,
+};
+
+const portalConfig = {
+  ...sharedOptions,
   server: process.env.DB_SERVER || 'localhost',
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  options: {
-    encrypt: true, // Requerido para Mandatory encryption en conexiones remotas
-    trustServerCertificate: true // Requerido para servidores on-premise
-  },
-  port: parseInt(process.env.DB_PORT) || 1433,
-  requestTimeout: 30000,
-  connectionTimeout: 30000
+  port: parseInt(process.env.DB_PORT, 10) || 1433,
 };
 
-console.log('Intentando conectar a SQL Server...');
+const panaceaConfig = {
+  ...sharedOptions,
+  server: process.env.PANACEA_DB_SERVER || portalConfig.server,
+  database: process.env.PANACEA_DB_NAME || 'PANACEA',
+  user: process.env.PANACEA_DB_USER || portalConfig.user,
+  password: process.env.PANACEA_DB_PASSWORD || portalConfig.password,
+  port: parseInt(process.env.PANACEA_DB_PORT, 10) || portalConfig.port,
+};
 
-const poolPromise = new sql.ConnectionPool(dbConfig)
-  .connect()
-  .then(pool => {
-    console.log('✅ Conectado exitosamente a SQL Server');
-    return pool;
-  })
-  .catch(err => {
-    console.error('❌ Error conectando a SQL Server:', err.message);
-    process.exit(-1);
-  });
+console.log('🔌 Inicializando pools SQL Server...');
+console.log(`   • Portal:  ${portalConfig.server} / ${portalConfig.database}`);
+console.log(`   • Panacea: ${panaceaConfig.server} / ${panaceaConfig.database}`);
+
+function buildPool(label, cfg) {
+  return new sql.ConnectionPool(cfg)
+    .connect()
+    .then((pool) => {
+      console.log(`✅ Pool ${label} conectado`);
+      return pool;
+    })
+    .catch((err) => {
+      console.error(`❌ Pool ${label} falló:`, err.message);
+      throw err;
+    });
+}
+
+const portalPool = buildPool('Portal', portalConfig);
+const panaceaPool = buildPool('Panacea', panaceaConfig);
 
 const testConnection = async () => {
-  try {
-    await poolPromise;
-    console.log('✅ Conexión a la base de datos verificada');
-  } catch (error) {
-    console.error('❌ Error en conexión:', error.message);
-    throw error;
-  }
+  await Promise.all([portalPool, panaceaPool]);
+  console.log('✅ Conexiones a SQL Server verificadas');
 };
 
-module.exports = { sql, poolPromise, testConnection };
+module.exports = {
+  sql,
+  // Compatibilidad con el código existente que importa `poolPromise`
+  poolPromise: portalPool,
+  portalPool,
+  panaceaPool,
+  testConnection,
+};

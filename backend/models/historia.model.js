@@ -1,17 +1,27 @@
-const { poolPromise, sql } = require('../config/db');
+const { sql, portalPool } = require('../config/db');
 
 /**
- * Modelo de Historia Clínica
- * Lee datos en tiempo real desde las vistas de PortalPacientes
- * (que a su vez leen de Panacea via linked server)
+ * ════════════════════════════════════════════════════════════════════════════
+ *  Modelo de Historia Clínica (LEGACY · vistas vw_*_portal)
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ *  Este modelo conserva las consultas **de listado y de identificación del
+ *  paciente** que se hacen sobre las vistas planas que viven en la BD del
+ *  portal (`vw_atenciones_portal`, `vw_pacientes_portal`).
+ *
+ *  El detalle y la impresión de una atención YA NO usan estas consultas:
+ *  ahora se delega en `services/historia.print.service.js`, que ejecuta los
+ *  stored procedures nativos de Panacea (Historia.*, Dinamico.*, etc.) tal y
+ *  como lo hace el cliente Silverlight (ver traza original).
+ * ════════════════════════════════════════════════════════════════════════════
  */
 const HistoriaModel = {
   /**
-   * Lista todas las atenciones (historias clínicas) de un paciente
-   * Consulta: vw_atenciones_portal (vista en PortalPacientes)
+   * Lista todas las atenciones (historias clínicas) de un paciente.
+   * Se mantiene para compatibilidad con `GET /historias`.
    */
   async findByDocument(tipo_documento, numero_documento) {
-    const pool = await poolPromise;
+    const pool = await portalPool;
     const result = await pool.request()
       .input('tipo', sql.SmallInt, parseInt(tipo_documento))
       .input('numero', sql.VarChar(30), numero_documento)
@@ -31,11 +41,11 @@ const HistoriaModel = {
   },
 
   /**
-   * Busca atenciones por código de tipo_documento (CC, TI, etc.)
-   * Hace JOIN con tipos_documento para traducir código → id numérico
+   * Busca atenciones por código de tipo_documento (CC, TI, etc.).
+   * Hace JOIN con tipos_documento para traducir código → id numérico.
    */
   async findByDocumentCode(codigo_tipo, numero_documento) {
-    const pool = await poolPromise;
+    const pool = await portalPool;
     const result = await pool.request()
       .input('codigo', sql.VarChar(10), codigo_tipo)
       .input('numero', sql.VarChar(30), numero_documento)
@@ -56,61 +66,11 @@ const HistoriaModel = {
   },
 
   /**
-   * Obtiene los datos básicos de una atención por ID
-   */
-  async findById(id_atencion, codigo_tipo, numero_documento) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.BigInt, id_atencion)
-      .input('codigo', sql.VarChar(10), codigo_tipo)
-      .input('numero', sql.VarChar(30), numero_documento)
-      .query(`
-        SELECT 
-          a.id_atencion AS id,
-          a.fecha_atencion AS fecha,
-          a.especialidad,
-          a.nombre_medico AS medico,
-          a.nombre_paciente,
-          a.numero_documento,
-          a.registro_medico,
-          a.id_estado,
-          a.id_plantilla
-        FROM vw_atenciones_portal a
-        INNER JOIN tipos_documento td ON a.tipo_documento = td.id
-        WHERE a.id_atencion = @id
-          AND td.codigo = @codigo
-          AND a.numero_documento = @numero
-      `);
-    return result.recordset[0] || null;
-  },
-
-  /**
-   * Obtiene TODOS los datos clínicos dinámicos de una atención
-   * Devuelve array de { id_campo, nombre_campo, valor }
-   * NO hardcodea IDs — usa la relación dinámica con TP_DATOS
-   */
-  async getDatosClinicos(id_atencion) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.BigInt, id_atencion)
-      .query(`
-        SELECT 
-          id_campo,
-          nombre_campo,
-          valor
-        FROM vw_datos_clinicos_portal
-        WHERE id_atencion = @id
-        ORDER BY id_campo
-      `);
-    return result.recordset;
-  },
-
-  /**
-   * Obtiene datos del paciente desde vw_pacientes_portal
-   * para completar la información del PDF
+   * Obtiene datos del paciente desde `vw_pacientes_portal` (necesario para
+   * el OTP de descarga de PDF: correo, teléfono, fecha de nacimiento).
    */
   async getPacienteCompleto(codigo_tipo, numero_documento) {
-    const pool = await poolPromise;
+    const pool = await portalPool;
     const result = await pool.request()
       .input('codigo', sql.VarChar(10), codigo_tipo)
       .input('numero', sql.VarChar(30), numero_documento)
@@ -129,7 +89,7 @@ const HistoriaModel = {
           AND p.numero_documento = @numero
       `);
     return result.recordset[0] || null;
-  }
+  },
 };
 
 module.exports = HistoriaModel;

@@ -1,20 +1,7 @@
 const HistoriaModel = require('../models/historia.model');
 const PdfService = require('../services/pdf.service');
-
-/**
- * Mapea los campos clínicos dinámicos a secciones estructuradas
- * NO hardcodea IDs — agrupa por nombre del campo
- */
-function estructurarDatosClinicos(datosClinicos) {
-  const estructura = {};
-  for (const campo of datosClinicos) {
-    if (!campo.valor || campo.valor.trim() === '') continue;
-    // Usar nombre_campo normalizado como clave
-    const clave = campo.nombre_campo.trim();
-    estructura[clave] = campo.valor.trim();
-  }
-  return estructura;
-}
+const HistoriaPrintService = require('../services/historia.print.service');
+const PlantillaRender = require('../services/plantilla.render');
 
 const HistoriaController = {
   /**
@@ -34,26 +21,27 @@ const HistoriaController = {
 
   /**
    * GET /historias/:id
-   * Detalle de una atención con todos sus datos clínicos
+   * Detalle de una atención. Usa el orquestador estilo Panacea para devolver
+   * un resumen con la atención, plantilla, paciente y datos clínicos.
    */
   async detalle(req, res) {
     try {
-      const { tipo_documento, numero_documento } = req.paciente;
-      const historia = await HistoriaModel.findById(req.params.id, tipo_documento, numero_documento);
-
-      if (!historia) {
-        return res.status(404).json({ error: 'Historia clínica no encontrada' });
-      }
-
-      // Obtener datos clínicos dinámicos
-      const datosClinicos = await HistoriaModel.getDatosClinicos(historia.id);
-      const campos = estructurarDatosClinicos(datosClinicos);
+      const payload = await HistoriaPrintService.imprimirAtencion(req.params.id, {
+        registrarCopia: false, // No registrar copia en la mera consulta
+      });
 
       return res.status(200).json({
         data: {
-          ...historia,
-          campos, // Objeto con todos los campos clínicos { "Motivo de consulta": "...", "Enfermedad actual": "...", etc }
-        }
+          atencion: payload.atencion,
+          plantilla: payload.plantilla.meta,
+          ips: payload.ips,
+          sede: payload.sede,
+          paciente: payload.paciente,
+          diagnosticos: payload.clinico.diagnosticos,
+          alergias: payload.paciente.alergias,
+          antecedentes: payload.paciente.antecedentes,
+          notas: payload.clinico.notas,
+        },
       });
     } catch (err) {
       console.error('❌ [Historia] detalle:', err.message);
@@ -146,17 +134,15 @@ const HistoriaController = {
 
   /**
    * GET /historias/:id/pdf
-   * Descarga PDF de una historia clínica
+   * Descarga PDF de una historia clínica replicando el flujo completo de
+   * Panacea: ejecuta TODOS los SPs de la traza original (Historia.*,
+   * Dinamico.*, Parametrizacion.*, Administracion.*, Laboratorio.*,
+   * Odontologia.*) y construye el HTML dinámicamente desde la plantilla
+   * configurada para la atención.
    */
   async descargarPdf(req, res) {
     try {
       const { tipo_documento, numero_documento } = req.paciente;
-      const paciente = await HistoriaModel.getPacienteCompleto(tipo_documento, numero_documento);
-
-      const historia = await HistoriaModel.findById(req.params.id, tipo_documento, numero_documento);
-      if (!historia) {
-        return res.status(404).json({ error: 'Historia clinica no encontrada' });
-      }
 
       const { otp } = req.query;
       if (!otp) {
@@ -164,31 +150,40 @@ const HistoriaController = {
       }
 
       const OtpModel = require('../models/otp.model');
-      const resultadoOtp = await OtpModel.verificar({
-        tipo_documento,
-        numero_documento
-      }, otp);
+      const resultadoOtp = await OtpModel.verificar(
+        { tipo_documento, numero_documento },
+        otp
+      );
 
       if (!resultadoOtp.valido) {
-        return res.status(401).json({ 
-          error: resultadoOtp.error, 
-          intentosRestantes: resultadoOtp.intentosRestantes 
+        return res.status(401).json({
+          error: resultadoOtp.error,
+          intentosRestantes: resultadoOtp.intentosRestantes,
         });
       }
 
-      // Obtener datos clínicos dinámicos
-      const datosClinicos = await HistoriaModel.getDatosClinicos(historia.id);
-      const campos = estructurarDatosClinicos(datosClinicos);
+      // ── Pipeline completo estilo Panacea ────────────────────────────────
+      const payload = await HistoriaPrintService.imprimirAtencion(req.params.id, {
+        numeroCopias: 1,
+        registrarCopia: true,
+      });
 
-      // Generar PDF con datos dinámicos
-      await PdfService.generarHistoriaPdf(
-        { ...historia, campos },
-        paciente,
-        res
-      );
+      const { html, parametros } = PlantillaRender.renderHtml(payload);
+
+      const nombreArchivo = `historia_clinica_${numero_documento || 'paciente'}_${req.params.id}.pdf`;
+
+      await PdfService.generarPdfDesdeHtml({
+        html,
+        parametros,
+        nombreArchivo,
+        res,
+      });
     } catch (err) {
       console.error('❌ [Historia] descargarPdf:', err.message);
-      return res.status(500).json({ error: 'Error al generar el documento PDF' });
+      console.error(err.stack);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: 'Error al generar el documento PDF' });
+      }
     }
   }
 };

@@ -13,7 +13,20 @@ Se ha decidido implementar una arquitectura en **N-Capas (N-Tier)** separando f�
 * **Función:** Uso exclusivo para el motor de base de datos SQL Server (Panacea).
 * **Hardware:** Intel Xeon Gold 5318Y (48 procesadores lógicos), SSDs corporativos, 128 GB RAM.
 * **Configuración:** La RAM suele operar al 95% (122 GB asignados dinámicamente a SQL Server). Se recomienda establecer un techo de Memoria Máxima (Max Server Memory) a 110 GB a través de SSMS para garantizar recursos al sistema operativo.
-* **Integración Futura:** Crear y conectar las vistas `vw_historias_portal` y `vw_laboratorios_portal` para entregar datos limpios al portal.
+* **Integración con el Portal:** El portal se conecta directamente a la BD `PANACEA` con un usuario de servicio dedicado (`Portal_Pacientes`) y ejecuta los **mismos stored procedures que la aplicación Silverlight** cuando un paciente descarga su historia clínica. Esto garantiza que el contenido del PDF sea **idéntico al que ven los doctores** sin duplicar lógica de impresión.
+
+  Permisos requeridos a otorgar al usuario por el DBA de Panacea:
+
+  ```sql
+  GRANT EXECUTE ON SCHEMA::Historia        TO Portal_Pacientes;
+  GRANT EXECUTE ON SCHEMA::Dinamico        TO Portal_Pacientes;
+  GRANT EXECUTE ON SCHEMA::Parametrizacion TO Portal_Pacientes;
+  GRANT EXECUTE ON SCHEMA::Administracion  TO Portal_Pacientes;
+  GRANT EXECUTE ON SCHEMA::Laboratorio     TO Portal_Pacientes;
+  GRANT EXECUTE ON SCHEMA::Odontologia     TO Portal_Pacientes;
+  ```
+
+  La BD intermedia (`PortalPacientes`) sigue siendo necesaria sólo para las vistas `vw_atenciones_portal` / `vw_pacientes_portal` (usadas únicamente por el listado y el envío del OTP) y para la tabla `codigos_otp` propia del portal.
 
 ### Servidor 2: Servidor de Aplicación Web (El Músculo)
 * **Función:** Ejecución de NodeJS, Empaquetado de React y Generación de documentos PDF (Puppeteer).
@@ -37,7 +50,7 @@ Para aprovechar el hardware del Servidor 2 sin intervenir negativamente con otra
 Cuando las vistas SQL en Panacea estén listas, seguir este orden en el **Servidor 2 (VM de 32GB)**:
 
 1. **Instalar Dependencias:** Instalar NodeJS localmente. Correr `npm install` tanto en `/backend` como en `/frontend`.
-2. **Conexión SQL Server:** Editar el archivo `backend/.env` usando la **Dirección IP del Servidor 1** en la variable `DB_SERVER=XXX.XXX.X.X`.
+2. **Conexión SQL Server:** Editar el archivo `backend/.env` usando la **Dirección IP del Servidor 1** en `DB_SERVER` (BD del portal con `vw_*_portal` y `codigos_otp`) y en `PANACEA_DB_SERVER` (BD `PANACEA` con los SPs nativos). Configurar también `PANACEA_DB_USER`/`PANACEA_DB_PASSWORD` con el usuario `Portal_Pacientes` que el DBA de Panacea autorizó. Definir `PANACEA_DB_USUARIO_AUDIT`, `PANACEA_DB_IP_ORIGEN` y `PANACEA_ID_IPS` para el contexto de auditoría que se inyecta en cada SP.
 3. **Encendido Invisible del Backend:** Moverse a la carpeta `/backend` y ejecutar `pm2 start ecosystem.config.js`. Esto activará en segundo plano automático la API sobre el puerto local `3001`.
 4. **Construcción estática de React:** Moverse a la carpeta `/frontend` y correr `npm run build`. Esto empaquetará la versión final minimizada (HTML, CSS, JS) lista para los navegadores web en la nueva carpeta `/dist`.
 5. **Configuración del Host IIS:** 
