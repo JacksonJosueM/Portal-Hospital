@@ -284,7 +284,7 @@ function renderTabla(datoMeta, filas) {
 }
 
 // ── Recorrido del árbol (depth-first) ─────────────────────────────────────
-function renderNodo(nodo, payload, depth) {
+function renderNodo(nodo, payload, depth, parentNombre) {
   const origen = nodo.ORIGEN;
   const nombre = escapeHtml(nodo.NOMBRE || nodo.DESCRIPCION || '');
   let html = '';
@@ -293,19 +293,20 @@ function renderNodo(nodo, payload, depth) {
   if (origen === 3) {
     if (nombre) html += `<h2 class="seccion">${nombre}</h2>`;
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1);
+      html += renderNodo(child, payload, depth + 1, nombre);
     }
     return html;
   }
 
-  // Grupo (subsección)
+  // Grupo (subsección) — omite el encabezado si repite el nombre de la pestaña padre
   if (origen === 2) {
-    if (nombre) {
+    const mostrarNombre = nombre && nombre !== parentNombre;
+    if (mostrarNombre) {
       const tag = depth <= 2 ? 'h3' : 'h4';
       html += `<${tag} class="seccion">${nombre}</${tag}>`;
     }
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1);
+      html += renderNodo(child, payload, depth + 1, nombre);
     }
     return html;
   }
@@ -316,9 +317,9 @@ function renderNodo(nodo, payload, depth) {
 
     // Sección decorativa (TIPO_DATO_FIJO=7)
     if (tipoFijo === TIPO_FIJO.SECCION) {
-      if (nombre) html += `<h4 class="seccion">${nombre}</h4>`;
+      if (nombre && nombre !== parentNombre) html += `<h4 class="seccion">${nombre}</h4>`;
       for (const child of nodo.children) {
-        html += renderNodo(child, payload, depth + 1);
+        html += renderNodo(child, payload, depth + 1, nombre);
       }
       return html;
     }
@@ -337,12 +338,12 @@ function renderNodo(nodo, payload, depth) {
         html += `<div class="campo-block"><b>${nombre}</b><div>${valor}</div></div>`;
       }
     } else {
-      html += `<div class="campo-line"><b>${nombre}:</b> ${valor || ''}</div>`;
+      html += `<div class="campo-line"><b>${nombre}:</b><span class="val">${valor || ''}</span></div>`;
     }
 
     // Un dato puede tener sub-datos (raro pero posible)
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1);
+      html += renderNodo(child, payload, depth + 1, nombre);
     }
     return html;
   }
@@ -355,7 +356,7 @@ function renderEstructura(payload) {
   const tree = buildTree(estructura);
   let html = '';
   for (const root of tree) {
-    html += renderNodo(root, payload, 0);
+    html += renderNodo(root, payload, 0, '');
   }
   return html;
 }
@@ -512,8 +513,9 @@ function buildEstilos(parametros) {
     h2.seccion { font-size: ${tamanio + 2}px; text-transform: uppercase; text-decoration: underline; margin: 12px 0 4px 0; page-break-after: avoid; }
     h3.seccion { font-size: ${tamanio + 1}px; text-transform: uppercase; text-decoration: underline; margin: 8px 0 3px 0; page-break-after: avoid; }
     h4.seccion { font-size: ${tamanio}px; font-weight: bold; margin: 6px 0 2px 0; page-break-after: avoid; }
-    .campo-line { margin: 1px 0; }
-    .campo-line b { min-width: 140px; display: inline-block; }
+    .campo-line { display: flex; align-items: flex-start; margin: 2px 0; }
+    .campo-line b { min-width: 150px; width: 150px; flex-shrink: 0; padding-right: 6px; }
+    .campo-line .val { flex: 1; word-break: break-word; }
     .campo-block { margin: 4px 0; }
     .texto-libre { margin: 4px 0; }
     .tabla-dinamica { width: 100%; border-collapse: collapse; margin: 4px 0; }
@@ -536,9 +538,6 @@ function renderHtml(payload) {
     ${renderEncabezado(payload)}
     <h1 class="seccion" style="text-align:center">${escapeHtml(plantillaNombre)}</h1>
     ${renderEstructura(payload)}
-    ${renderAlergias(payload)}
-    ${renderAntecedentes(payload)}
-    ${renderDiagnosticos(payload)}
     ${renderOrdenesYFormulacion(payload)}
     ${renderFirma(payload)}
     <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
