@@ -1,0 +1,57 @@
+[
+  {
+    "TABLE_NAME": "historias_clinicas",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "historias_clinicas",
+    "COLUMN_NAME": "id_paciente",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "historias_clinicas",
+    "COLUMN_NAME": "ruta_pdf",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "historias_clinicas",
+    "COLUMN_NAME": "fecha",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "id",
+    "DATA_TYPE": "int"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "documento",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "nombre",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "correo",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "contraseña",
+    "DATA_TYPE": "varchar"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "fecha_registro",
+    "DATA_TYPE": "datetime"
+  },
+  {
+    "TABLE_NAME": "pacientes",
+    "COLUMN_NAME": "tipo_documento",
+    "DATA_TYPE": "varchar"
+  }
+]
