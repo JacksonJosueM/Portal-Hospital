@@ -76,15 +76,16 @@ function buildFormat(parametros = {}) {
 }
 
 /**
- * Renderiza un HTML a PDF y lo escribe directo en la respuesta HTTP.
+ * Renderiza un HTML a PDF y devuelve el buffer en memoria.
+ * Esta es la primitiva reusable que utiliza tanto el controlador HTTP
+ * (`generarPdfDesdeHtml`) como el CLI de envío automatizado.
  *
  * @param {object} params
  * @param {string} params.html         HTML completo (con <html>, <head>, <body>)
  * @param {object} [params.parametros] Parámetros de impresión (de STP_PARAMETROS_IMPRESION)
- * @param {string} [params.nombreArchivo='historia_clinica.pdf']
- * @param {import('express').Response} params.res
+ * @returns {Promise<Buffer>}
  */
-async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'historia_clinica.pdf', res }) {
+async function generarPdfBuffer({ html, parametros = {} }) {
   let page;
   const startTime = Date.now();
 
@@ -121,12 +122,7 @@ async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'his
     const elapsed = Date.now() - startTime;
     console.log(`📄 PDF generado en ${elapsed}ms (${(pdfBuffer.length / 1024).toFixed(0)} KB)`);
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${nombreArchivo}"`,
-      'Content-Length': pdfBuffer.length,
-    });
-    return res.send(pdfBuffer);
+    return pdfBuffer;
   } catch (err) {
     if (page) {
       try { await page.close(); } catch (_) { /* noop */ }
@@ -136,4 +132,36 @@ async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'his
   }
 }
 
-module.exports = { generarPdfDesdeHtml };
+/**
+ * Renderiza un HTML a PDF y lo escribe directo en la respuesta HTTP.
+ * Wrapper compatible con el controlador `historia.controller.js`.
+ *
+ * @param {object} params
+ * @param {string} params.html         HTML completo
+ * @param {object} [params.parametros] Parámetros de impresión
+ * @param {string} [params.nombreArchivo='historia_clinica.pdf']
+ * @param {import('express').Response} params.res
+ */
+async function generarPdfDesdeHtml({ html, parametros = {}, nombreArchivo = 'historia_clinica.pdf', res }) {
+  const pdfBuffer = await generarPdfBuffer({ html, parametros });
+
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${nombreArchivo}"`,
+    'Content-Length': pdfBuffer.length,
+  });
+  return res.send(pdfBuffer);
+}
+
+/**
+ * Cierra el browser singleton de Puppeteer. Útil para apagar limpiamente
+ * el proceso CLI al final de un envío masivo.
+ */
+async function cerrarBrowser() {
+  if (_browser) {
+    try { await _browser.close(); } catch (_) { /* noop */ }
+    _browser = null;
+  }
+}
+
+module.exports = { generarPdfBuffer, generarPdfDesdeHtml, cerrarBrowser };

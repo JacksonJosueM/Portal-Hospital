@@ -129,6 +129,46 @@ const runMigrations = async () => {
       END
     `);
 
+    // ══════════════════════════════════════════════════════════════
+    // TABLA DE AUDITORÍA DE ENVÍOS AUTOMATIZADOS POR CORREO
+    // Usada por el CLI `cli/enviar-historia.js` y los .bat asociados.
+    // ══════════════════════════════════════════════════════════════
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[envios_historia]') AND type in (N'U'))
+      BEGIN
+        CREATE TABLE [dbo].[envios_historia] (
+          id INT IDENTITY(1,1) PRIMARY KEY,
+          id_atencion BIGINT NOT NULL,
+          tipo_documento VARCHAR(10) NOT NULL,
+          numero_documento VARCHAR(30) NOT NULL,
+          destino VARCHAR(200) NOT NULL,
+          estado VARCHAR(20) NOT NULL,
+          error_mensaje NVARCHAR(MAX) NULL,
+          fecha_envio DATETIME DEFAULT GETDATE(),
+          fuente VARCHAR(20) NOT NULL
+        )
+      END
+    `);
+
+    // Índice de consulta general (idempotencia y reporting)
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_envios_atencion' AND object_id = OBJECT_ID('dbo.envios_historia'))
+      BEGIN
+        CREATE INDEX idx_envios_atencion ON dbo.envios_historia (id_atencion, estado);
+      END
+    `);
+
+    // Índice único parcial: una atención solo puede tener UN envío exitoso.
+    // Si se relanza el .bat, los reenvíos se rechazan en BD por este índice.
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_envios_atencion_ok' AND object_id = OBJECT_ID('dbo.envios_historia'))
+      BEGIN
+        CREATE UNIQUE INDEX UX_envios_atencion_ok
+          ON dbo.envios_historia (id_atencion)
+          WHERE estado = 'OK';
+      END
+    `);
+
     // Vista de DATOS CLÍNICOS (campos dinámicos de cada atención)
     await pool.query(`
       IF NOT EXISTS (SELECT * FROM sys.views WHERE name = 'vw_datos_clinicos_portal')

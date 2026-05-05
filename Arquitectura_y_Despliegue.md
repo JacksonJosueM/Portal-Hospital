@@ -59,7 +59,63 @@ Cuando las vistas SQL en Panacea estén listas, seguir este orden en el **Servid
 
 ---
 
-## 4. Fase de Exposición a Internet Mundial 🌎
+## 4. Envío Automatizado de Historias Clínicas por Correo (CLI + .bat) 📧
+
+Para casos en los que no se quiere depender del frontend (envíos masivos, tareas programadas, soporte en sede), el backend expone un **CLI** ubicado en `backend/cli/enviar-historia.js` que reutiliza el mismo pipeline Panacea que usa la ruta `GET /historias/:id/pdf`. Tres archivos `.bat` en `backend/bin/` lo invocan según la modalidad:
+
+| .bat | Modalidad | Cuándo se usa |
+|------|-----------|----------------|
+| `enviar-historia-single.bat` | Un paciente puntual (interactivo o con argumentos) | Soporte presencial, casos uno a uno |
+| `enviar-historia-bulk.bat`   | Lote desde un CSV (`tipo_documento,numero_documento[,id_atencion]`) | Reprocesos, jornadas masivas |
+| `enviar-historia-programado.bat` | Detecta atenciones cerradas no enviadas y las despacha | Programar en Windows Task Scheduler |
+
+### Flujo interno
+1. Resuelve el paciente desde `vw_pacientes_portal` (correo, número de documento).
+2. Si no se especificó `id_atencion`, toma la última atención cerrada (`id_estado IN (2,3)`).
+3. Ejecuta `services/historia.print.service.js` (los ~80 SPs nativos de Panacea, dejando huella idéntica a Silverlight con el usuario `Portal_Pacientes`).
+4. Render HTML con `services/plantilla.render.js`.
+5. PDF en memoria con `services/pdf.service.js → generarPdfBuffer()`.
+6. Cifrado AES-128 con `services/pdf.encrypt.js`. **La contraseña del PDF es el `numero_documento` del paciente** (sin puntos ni espacios). Se utiliza la librería `muhammara` (prebuilts para Windows x64).
+7. Envío por SMTP con Nodemailer (transporter ya configurado en `config/mailer.js`).
+8. Auditoría en `envios_historia` (tabla creada por `config/migrations.js`).
+
+### Idempotencia
+La tabla `envios_historia` tiene un índice único parcial:
+```sql
+CREATE UNIQUE INDEX UX_envios_atencion_ok
+  ON envios_historia (id_atencion) WHERE estado = 'OK';
+```
+Si se relanza un .bat o si Task Scheduler ejecuta dos veces seguidas, el INSERT del segundo envío exitoso lo rechaza la base de datos antes de duplicar el correo. Adicionalmente, el script consulta esa tabla **antes** de generar el PDF y omite los ya enviados (a menos que se pase `--forzar`).
+
+### Aislamiento de PM2
+El CLI corre como un **proceso aparte**: tiene su propio pool de Puppeteer y se cierra al terminar (`PdfService.cerrarBrowser()`), por lo que no interfiere con las 4 instancias del backend HTTP que sirven el portal en producción.
+
+### Variables de entorno relevantes
+```
+ENVIO_CONCURRENCIA=3      # PDFs en paralelo (controlado con p-limit)
+ENVIO_FUENTE_DEFAULT=manual
+ENVIO_MAX_PROGRAMADO=200  # tope por corrida del modo programado
+```
+
+### Programación recomendada (Task Scheduler)
+```
+schtasks /Create /TN "Portal\EnviarHistoriasProgramado" ^
+  /TR "C:\Portal-Hospital\backend\bin\enviar-historia-programado.bat" ^
+  /SC HOURLY /MO 1 /RU SYSTEM
+```
+La salida queda registrada en `backend/logs/programado.log` (resumen) y en `backend/logs/envios-YYYY-MM-DD.log` (detalle por atención).
+
+### Códigos de salida (útiles para Task Scheduler)
+| Code | Significado |
+|------|-------------|
+| 0 | Todo OK |
+| 1 | Argumentos inválidos |
+| 2 | Error fatal de conexión / configuración |
+| 3 | Procesamiento parcial (al menos un fallo) |
+
+---
+
+## 5. Fase de Exposición a Internet Mundial 🌎
 Una vez probado bajo la IP local (ej: `192.168.x.x`), para el acceso público deberán interactuar desde Infraestructura/Redes del hospital integrando tres elementos:
 
 1. **Port Forwarding (NAT):** Permitir tráfico del puerto `80` (HTTP) y `443` (HTTPS) desde el Firewall del hospital exclusivamente hacia la IP interna del **Servidor 2**.
