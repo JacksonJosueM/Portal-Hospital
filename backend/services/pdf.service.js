@@ -106,7 +106,10 @@ async function generarPdfBuffer({ html, parametros = {} }) {
       else req.continue();
     });
 
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    await page.setContent(html, { 
+      waitUntil: 'domcontentloaded',
+      timeout: 60000 // Aumentar a 60s
+    });
     await page.emulateMediaType('screen');
 
     const pdfBuffer = await page.pdf({
@@ -114,6 +117,7 @@ async function generarPdfBuffer({ html, parametros = {} }) {
       margin: buildMargin(parametros),
       printBackground: true,
       preferCSSPageSize: false,
+      timeout: 60000 // Mantener timeout de 60s
     });
 
     await page.close();
@@ -124,10 +128,11 @@ async function generarPdfBuffer({ html, parametros = {} }) {
 
     return pdfBuffer;
   } catch (err) {
+    const elapsed = Date.now() - startTime;
+    console.error(`❌ Error generando PDF después de ${elapsed}ms:`, err.message);
     if (page) {
       try { await page.close(); } catch (_) { /* noop */ }
     }
-    console.error('❌ Error generando PDF:', err.message);
     throw err;
   }
 }

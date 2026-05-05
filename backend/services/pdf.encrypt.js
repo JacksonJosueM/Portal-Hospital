@@ -158,8 +158,10 @@ async function cifrarConQpdf(buffer, password) {
  * @throws {Error}                 Si ninguna librería de cifrado está disponible
  */
 async function cifrarPdf(pdfBuffer, password) {
-  if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
-    throw new Error('cifrarPdf: pdfBuffer vacío o inválido');
+  const length = pdfBuffer ? pdfBuffer.length : 0;
+  
+  if (!pdfBuffer || length === 0) {
+    throw new Error(`cifrarPdf: pdfBuffer vacío o nulo`);
   }
   const limpio = sanitizarPassword(password);
   const t0 = Date.now();
