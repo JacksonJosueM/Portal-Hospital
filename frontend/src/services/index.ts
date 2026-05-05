@@ -31,16 +31,9 @@ export const historiasService = {
     const { data } = await api.post(`/historias/${id}/solicitar-pdf`);
     return data;
   },
-  async descargarPdf(id: number, otp: string, nombreArchivo: string) {
-    const response = await api.get(`/historias/${id}/pdf?otp=${otp}`, { responseType: 'blob' });
-    // Intentar extraer nombre del header Content-Disposition
-    const disposition = response.headers['content-disposition'];
-    let filename = nombreArchivo;
-    if (disposition) {
-      const match = disposition.match(/filename="?([^";\n]+)"?/);
-      if (match && match[1]) filename = match[1];
-    }
-    _descargarBlob(response.data, filename, 'application/pdf');
+  async descargarPdf(id: number, otp: string) {
+    const { data } = await api.get(`/historias/${id}/pdf?otp=${otp}`);
+    return data;
   },
 };
 

@@ -223,6 +223,26 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     ]);
   }
 
+  // ── PASO 9 · Extraer campos planos para frontend y plantillas fijas ──
+  const camposFront = {};
+  function extractCampos(nodo) {
+    if (nodo.ORIGEN === 1) { // Dato
+      let val = null;
+      const guid = nodo.ID;
+      if (valoresPorEstructura.texto.has(guid)) val = valoresPorEstructura.texto.get(guid)[0].VALOR_TEXTO;
+      else if (valoresPorEstructura.enteros.has(guid)) val = valoresPorEstructura.enteros.get(guid)[0].VALOR_ENTEROS;
+      else if (valoresPorEstructura.decimal.has(guid)) val = valoresPorEstructura.decimal.get(guid)[0].VALOR_DECIMAL;
+      else if (valoresPorEstructura.fecha.has(guid)) val = valoresPorEstructura.fecha.get(guid)[0].VALOR_FECHA;
+      else if (valoresPorEstructura.lista.has(guid)) val = valoresPorEstructura.lista.get(guid)[0].VALOR_TEXTO;
+      
+      if (val != null && val !== '') {
+        camposFront[nodo.NOMBRE || nodo.DESCRIPCION] = String(val);
+      }
+    }
+    for (const child of nodo.children || []) extractCampos(child);
+  }
+  for (const nodo of estructura) extractCampos(nodo);
+
   const elapsed = Date.now() - startTime;
   console.log(
     `✅ [HistoriaPrint] Atención ${idAtencion} consolidada en ${elapsed}ms ` +
@@ -246,6 +266,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     ips,
     sede,
     logoIps,
+    campos: camposFront, // <-- Dictionary for easy mapping
     paciente: {
       id: idPaciente,
       alergias,

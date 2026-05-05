@@ -41,11 +41,12 @@ const HistoriaController = {
           alergias: payload.paciente.alergias,
           antecedentes: payload.paciente.antecedentes,
           notas: payload.clinico.notas,
+          campos: payload.campos,
         },
       });
     } catch (err) {
       console.error('❌ [Historia] detalle:', err.message);
-      return res.status(500).json({ error: 'Error al obtener la historia clínica' });
+      return res.status(500).json({ error: 'Error al obtener la historia clínica', detalle: err.message, stack: err.stack });
     }
   },
 
@@ -76,7 +77,6 @@ const HistoriaController = {
       });
 
       const { transporter } = require('../config/mailer');
-      const WhatsAppService = require('../services/sms.service');
 
       // 1. Envio por Correo electronico
       if (correoDestino) {
@@ -106,21 +106,10 @@ const HistoriaController = {
         }
       }
 
-      // 2. Envio por WhatsApp (Meta Business API)
-      if (telefonoDestino) {
-        try {
-          await WhatsAppService.enviarOtp(telefonoDestino, codigo);
-          console.log(`📲 WhatsApp enviado al numero: ${telefonoDestino}`);
-        } catch (e) {
-          console.warn('⚠️ No se pudo enviar el WhatsApp:', e.message);
-        }
-      }
-
       console.log('✅ OTP generado para descargar historia:', codigo);
 
       let medios = [];
       if (correoDestino) medios.push('tu correo electrónico');
-      if (telefonoDestino) medios.push('tu WhatsApp');
       let mensajeEnvio = `Hemos enviado un código de verificación a ${medios.join(' y a ')}. Dicho código tiene una validez de 5 minutos.`;
 
       return res.status(200).json({
@@ -144,7 +133,8 @@ const HistoriaController = {
     try {
       const { tipo_documento, numero_documento } = req.paciente;
 
-      const { otp } = req.query;
+      // El frontend puede enviar el OTP por body o query
+      const otp = req.query.otp || req.body.otp;
       if (!otp) {
         return res.status(400).json({ error: 'Código de seguridad requerido para la descarga.' });
       }
@@ -162,30 +152,59 @@ const HistoriaController = {
         });
       }
 
-      // ── Pipeline completo estilo Panacea ────────────────────────────────
-      const payload = await HistoriaPrintService.imprimirAtencion(req.params.id, {
-        numeroCopias: 1,
-        registrarCopia: true,
-      });
+      // ── En lugar de generar el PDF con Puppeteer, solo obtenemos los datos visuales
+      //    (logo, firma) y registramos la copia. El frontend generará el PDF. ──
+      const Parametrizacion = require('../services/panacea/parametrizacionSP');
+      const Administracion = require('../services/panacea/administracionSP');
+      const HistoriaPanacea = require('../services/panacea/historiaSP');
+      const idAtencion = req.params.id;
+      
+      // Registrar la copia (Auditoria)
+      let numeroCopias = 1;
+      try {
+        const copias = await HistoriaPanacea.getCopiasImpresion(idAtencion);
+        if (copias && copias.length > 0) numeroCopias = (copias[0].NRO_COPIAS || 0) + 1;
+        await HistoriaPanacea.registrarCopiaImpresion(idAtencion, numeroCopias);
+      } catch (e) { console.error('Error al registrar copia:', e.message); }
 
-      const { html, parametros } = PlantillaRender.renderHtml(payload);
-
-      const nombreArchivo = `historia_clinica_${numero_documento || 'paciente'}_${req.params.id}.pdf`;
-
-      await PdfService.generarPdfDesdeHtml({
-        html,
-        parametros,
-        nombreArchivo,
-        res,
-      });
-    } catch (err) {
-      console.error('❌ [Historia] descargarPdf:', err.message);
-      console.error(err.stack);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: 'Error al generar el documento PDF' });
+      // Obtener logo (suponiendo IPS 21 por defecto o la que tenga la atención)
+      const atencionBasic = await HistoriaPanacea.getAtencion(idAtencion);
+      const idIps = atencionBasic ? atencionBasic.ID_IPS : 21;
+      const logoIps = await Parametrizacion.getPrimerLogoIps(idIps);
+      
+      // Obtener profesional
+      const userMed = atencionBasic ? (atencionBasic.USUARIO || atencionBasic.USER_NAME) : null;
+      let profesional = null;
+      if (userMed) {
+        profesional = await Administracion.getUsuario(userMed);
       }
+
+      function bytesToDataUrl(bytes, mime = 'image/png') {
+        if (!bytes) return '';
+        if (typeof bytes === 'string' && bytes.startsWith('data:')) return bytes;
+        const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      }
+
+      const logoBase64 = logoIps && logoIps.LOGO ? bytesToDataUrl(logoIps.LOGO, logoIps.TIPO_MIME) : null;
+
+      return res.status(200).json({
+        success: true,
+        logo: logoBase64,
+        profesional: profesional ? {
+          nombres: [profesional.PRIMER_NOMBRE, profesional.SEGUNDO_NOMBRE, profesional.PRIMER_APELLIDO, profesional.SEGUNDO_APELLIDO].filter(Boolean).join(' '),
+          registro: profesional.REGISTRO_MEDICO || profesional.NUMERO_IDENTIFICACION,
+          especialidad: profesional.DESCRIPCION || 'MEDICINA GENERAL',
+          tipo_id: profesional.TIPO_IDENTIFICACION || profesional.ID_TIPO_IDENTIFICACION,
+          numero_id: profesional.NUMERO_IDENTIFICACION
+        } : null
+      });
+
+    } catch (err) {
+      console.error('❌ [Historia] descargarPdf:', err.stack || err.message);
+      return res.status(500).json({ error: 'Error al autorizar la descarga del documento' });
     }
-  }
+  },
 };
 
 module.exports = HistoriaController;

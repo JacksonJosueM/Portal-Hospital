@@ -87,8 +87,6 @@ const ServiciosController = {
       });
 
       const { transporter } = require('../config/mailer');
-      const WhatsAppService = require('../services/sms.service');
-
       // 1. Correo electrónico
       if (paciente.correo) {
         try {
@@ -134,16 +132,6 @@ const ServiciosController = {
         }
       }
 
-      // 2. WhatsApp
-      if (paciente.telefono) {
-        try {
-          await WhatsAppService.enviarOtp(paciente.telefono, codigo);
-          console.log(`📲 OTP WhatsApp: ${paciente.telefono}`);
-        } catch (e) {
-          console.warn('⚠️ Error WhatsApp:', e.message);
-        }
-      }
-
       console.log(`✅ OTP generado para paciente ${paciente.id}: ${codigo}`);
 
       // Token temporal de sesión (no es el OTP, es para identificar a quién pertenece el OTP)
@@ -155,7 +143,6 @@ const ServiciosController = {
 
       let mediosEnvio = [];
       if (paciente.correo) mediosEnvio.push('su correo electronico');
-      if (paciente.telefono) mediosEnvio.push('su WhatsApp');
       let mensajeTexto = mediosEnvio.length > 0
         ? `Se ha enviado un codigo de verificacion a ${mediosEnvio.join(' y ')}. Valido por 5 minutos.`
         : 'No tiene medios de contacto vinculados.';

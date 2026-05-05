@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { historiasService } from '../services';
 import type { HistoriaClinica } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { generatePdfFromHistoria } from '../utils/pdfGenerator';
 
 /**
  * Configuración de secciones clínicas.
@@ -250,7 +251,7 @@ export const HistoriaDetallePage: React.FC = () => {
     setOtp('');
     setIntentosRestantes(3);
     try {
-      const res = await historiasService.solicitarPdf(historia.id);
+      const res = await historiasService.solicitarPdf(Number(id));
       setOtpSentMsg(res.message);
       setShowOtpModal(true);
     } catch (err: any) {
@@ -265,11 +266,19 @@ export const HistoriaDetallePage: React.FC = () => {
     setPdfLoading(true);
     setOtpError('');
     try {
-      await historiasService.descargarPdf(historia.id, otp, `historia_clinica_${historia.id}.pdf`);
-      setShowOtpModal(false);
-      setOtp('');
-      setIntentosRestantes(null);
+      // Validate OTP and get logo/profesional data from backend
+      const res = await historiasService.descargarPdf(Number(id), otp);
+      if (res.success) {
+        // Generate PDF directly in the browser!
+        generatePdfFromHistoria(historia, res.logo, res.profesional);
+        
+        setShowOtpModal(false);
+        setOtp('');
+        setIntentosRestantes(null);
+      }
     } catch (err: any) {
+      console.error('❌ [Descarga Detail] Error:', err);
+      
       if (err.response?.data instanceof Blob) {
         try {
           const text = await err.response.data.text();
@@ -279,8 +288,15 @@ export const HistoriaDetallePage: React.FC = () => {
         } catch {
           setOtpError('Error al validar el código.');
         }
+      } else if (err.response?.data) {
+        // Error de la API (JSON)
+        setOtpError(err.response.data.error || 'Código incorrecto o expirado');
+        if (err.response.data.intentosRestantes !== undefined) {
+          setIntentosRestantes(err.response.data.intentosRestantes);
+        }
       } else {
-        setOtpError(err.response?.data?.error || 'Código incorrecto o expirado');
+        // Error local o de red sin respuesta
+        setOtpError(err.message ? `Error al generar PDF: ${err.message}` : 'Código incorrecto o expirado');
       }
     } finally {
       setPdfLoading(false);
@@ -354,17 +370,16 @@ export const HistoriaDetallePage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-                📋 Atención #{historia.id}
+                📋 Atención #{id}
               </div>
               <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px' }}>
-                {historia.especialidad || 'Atención Médica'}
+                {historia.atencion?.NOMBRE_ESPECIALIDAD || 'Atención Médica'}
               </h1>
               <p style={{ margin: 0, fontSize: 14, opacity: 0.85 }}>
-                {formatFecha(historia.fecha)}
+                {formatFecha(historia.atencion?.FECHA_ATENCION)}
               </p>
               <p style={{ margin: '8px 0 0', fontSize: 14, opacity: 0.85 }}>
-                👨‍⚕️ Dr. {historia.medico || 'No disponible'}
-                {historia.registro_medico && <span style={{ opacity: 0.6 }}> · Reg. {historia.registro_medico}</span>}
+                👨‍⚕️ Dr. {historia.atencion?.NOMBRE_COMPLETO_PRESTADOR || 'No disponible'}
               </p>
             </div>
             <button
@@ -550,13 +565,23 @@ export const HistoriaDetallePage: React.FC = () => {
                   </button>
                   <button
                     className="btn-primary"
-                    style={{ width: 'auto' }}
+                    style={{ width: 'auto', minWidth: 140 }}
                     onClick={handleDescargar}
                     disabled={pdfLoading || otp.length !== 6}
                   >
-                    {pdfLoading ? <span className="spinner" /> : '⬇️ Descargar'}
+                    {pdfLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="spinner" />
+                        <span>Generando...</span>
+                      </div>
+                    ) : '⬇️ Descargar'}
                   </button>
                 </div>
+                {pdfLoading && (
+                  <p style={{ marginTop: 12, fontSize: 12, color: '#6b7280', textAlign: 'center', fontStyle: 'italic' }}>
+                    Extrayendo datos clínicos de Panacea... Esto puede tardar unos segundos.
+                  </p>
+                )}
               </>
             )}
           </div>

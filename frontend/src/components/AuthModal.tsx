@@ -75,7 +75,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
       const res = await serviciosService.verificarOtp(tempToken, codigo_otp);
       onSuccess(res.paciente, res.token);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Código incorrecto o expirado.');
+      console.error('❌ [Auth OTP] Error:', err);
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(err.message ? `Error de conexión: ${err.message}` : 'Código incorrecto o expirado.');
+      }
     } finally {
       setLoading(false);
     }

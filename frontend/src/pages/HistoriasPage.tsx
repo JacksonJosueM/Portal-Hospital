@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { historiasService } from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import { generatePdfFromHistoria } from '../utils/pdfGenerator';
 
 export const HistoriasPage: React.FC = () => {
   const [historias, setHistorias] = useState<any[]>([]);
@@ -68,16 +69,22 @@ export const HistoriasPage: React.FC = () => {
     setPdfLoading(true);
     setOtpError('');
     try {
-      await historiasService.descargarPdf(
-        selectedHistoria.id,
-        otp,
-        `historia_clinica_${selectedHistoria.id}.pdf`
-      );
-      setShowOtpModal(false);
-      setOtp('');
-      setSelectedHistoria(null);
-      setIntentosRestantes(null);
+      const resPdf = await historiasService.descargarPdf(selectedHistoria.id, otp);
+      if (resPdf && resPdf.success) {
+        // Obtenemos todos los datos clínicos de la historia para generar el PDF
+        const resDetalle = await historiasService.detalle(selectedHistoria.id);
+        if (resDetalle && resDetalle.data) {
+          generatePdfFromHistoria(resDetalle.data, resPdf.logo, resPdf.profesional);
+        }
+        
+        setShowOtpModal(false);
+        setOtp('');
+        setSelectedHistoria(null);
+        setIntentosRestantes(null);
+      }
     } catch (err: any) {
+      console.error('❌ [Descarga] Error:', err);
+      
       if (err.response?.data instanceof Blob) {
         const text = await err.response.data.text();
         try {
@@ -89,8 +96,15 @@ export const HistoriasPage: React.FC = () => {
         } catch {
           setOtpError('Error al validar el código.');
         }
+      } else if (err.response?.data) {
+        // Error de la API (JSON)
+        setOtpError(err.response.data.error || 'Código incorrecto o expirado');
+        if (err.response.data.intentosRestantes !== undefined) {
+          setIntentosRestantes(err.response.data.intentosRestantes);
+        }
       } else {
-        setOtpError(err.response?.data?.error || 'Código incorrecto o expirado');
+        // Error local (ej: fallo en la generación del PDF) o error de red sin respuesta
+        setOtpError(err.message ? `Error al generar PDF: ${err.message}` : 'Código incorrecto o expirado');
       }
     } finally {
       setPdfLoading(false);
@@ -342,13 +356,23 @@ export const HistoriasPage: React.FC = () => {
                   </button>
                   <button
                     className="btn-primary"
-                    style={{ width: 'auto' }}
+                    style={{ width: 'auto', minWidth: 140 }}
                     onClick={handleDescargarConOtp}
                     disabled={pdfLoading || otp.length !== 6}
                   >
-                    {pdfLoading ? <span className="spinner" /> : '⬇️ Descargar'}
+                    {pdfLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="spinner" />
+                        <span>Generando...</span>
+                      </div>
+                    ) : '⬇️ Descargar'}
                   </button>
                 </div>
+                {pdfLoading && (
+                  <p style={{ marginTop: 12, fontSize: 12, color: '#6b7280', textAlign: 'center', fontStyle: 'italic' }}>
+                    Extrayendo datos clínicos de Panacea... Esto puede tardar unos segundos.
+                  </p>
+                )}
               </>
             )}
           </div>
