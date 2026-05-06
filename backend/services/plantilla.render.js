@@ -410,7 +410,7 @@ function renderIdentificacionPaciente(payload) {
   const pais = escapeHtml(t['PAIS_NACIMIENTO'] || 'No registrado');
 
   return `
-    <h3 style="font-size: 11px; font-weight: bold; margin: 10px 0 2px 0; text-transform: uppercase;">IDENTIFICACIÓN DEL PACIENTE</h3>
+    <h3 style="font-size: 12px; font-weight: bold; margin: 30px 0 6px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.2;">IDENTIFICACIÓN DEL PACIENTE</h3>
     <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px; table-layout: auto;">
       <tbody>
         <tr>
