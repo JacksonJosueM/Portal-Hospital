@@ -22,8 +22,8 @@ const sharedOptions = {
     encrypt: true,
     trustServerCertificate: true,
   },
-  requestTimeout: 60000,
-  connectionTimeout: 30000,
+  requestTimeout: 90000, // Aumentar a 90s
+  connectionTimeout: 45000, // Aumentar a 45s
 };
 
 const portalConfig = {

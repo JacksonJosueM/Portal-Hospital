@@ -24,6 +24,7 @@ async function getBrowser() {
   _browserLaunchPromise = puppeteer
     .launch({
       headless: 'new',
+      timeout: 60000, // Aumentar a 60s
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -93,31 +94,49 @@ async function generarPdfBuffer({ html, parametros = {} }) {
     const browser = await getBrowser();
     page = await browser.newPage();
 
-    // Viewport que coincida con el ancho de una página Letter a 96 DPI
-    // (8.5in × 96 = 816px). Sin esto, el viewport por defecto ~800px puede
-    // calcular el layout de flex/tablas mal antes de imprimir el PDF.
-    await page.setViewport({ width: 816, height: 1056, deviceScaleFactor: 1 });
+    // ── Viewport alineado al formato de papel real ───────────────────────
+    // A4 a 96 DPI ≈ 794 px de ancho. Letter ≈ 816 px.
+    // Usamos 794 como mínimo común; Puppeteer lo reescala internamente al PDF.
+    const formato = buildFormat(parametros);
+    const vpWidth = 1200; // Ancho amplio para permitir flujo natural sin restricciones
+    await page.setViewport({ width: vpWidth, height: 1123, deviceScaleFactor: 1 });
 
-    // Bloquear recursos externos (no debería haber, pero por si acaso)
+    // Bloquear SOLO recursos de red (imágenes externas, scripts remotos).
+    // Las hojas de estilo inline y data-URIs NO pasan por aquí; se permiten.
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const type = req.resourceType();
-      if (['stylesheet', 'font', 'script'].includes(type)) req.abort();
-      else req.continue();
+      // Permitir: document, stylesheet (por si acaso), image (data-URI)
+      if (['font', 'script', 'media', 'websocket', 'other'].includes(type)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
     });
 
-    await page.setContent(html, { 
-      waitUntil: 'domcontentloaded',
-      timeout: 60000 // Aumentar a 60s
+    // setContent con networkidle0 garantiza que los data-URIs de imágenes
+    // (logo, firma) terminen de decodificarse antes de exportar.
+    await page.setContent(html, {
+      waitUntil: ['domcontentloaded', 'networkidle0'],
+      timeout: 120000,
     });
-    await page.emulateMediaType('screen');
+
+    // ── CORRECCIÓN CRÍTICA ────────────────────────────────────────────────
+    // Emular 'print' (NO 'screen') para que Chromium active:
+    //   • las reglas @media print
+    //   • las directivas @page (márgenes, tamaño)
+    //   • page-break-inside / break-inside
+    // Con 'screen' estas reglas se ignoran completamente y el contenido
+    // se renderiza como si fuera una página web infinita → superposición.
+    await page.emulateMediaType('print');
 
     const pdfBuffer = await page.pdf({
-      format: buildFormat(parametros),
+      format: formato,
       margin: buildMargin(parametros),
       printBackground: true,
-      preferCSSPageSize: false,
-      timeout: 60000 // Mantener timeout de 60s
+      preferCSSPageSize: false,   // respetar el format + margin de arriba
+      displayHeaderFooter: false, // sin encabezado/pie nativos de Chrome
+      timeout: 120000,
     });
 
     await page.close();

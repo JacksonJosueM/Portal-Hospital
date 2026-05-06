@@ -85,6 +85,15 @@ function bytesToDataUrl(bytes, mime = 'image/png') {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
+function buildFormat(parametros = {}) {
+  // PAPEL_HISTORIA puede venir como código (1=Carta, 2=Oficio, etc.).
+  switch (parametros.PAPEL_HISTORIA) {
+    case 2: return 'Legal';
+    case 3: return 'A4';
+    default: return 'Letter';
+  }
+}
+
 // ── Resolución de macros tipo {{NOMBRE_TOKEN}} ────────────────────────────
 function resolverTokens(texto, tokens) {
   if (!texto || typeof texto !== 'string') return texto || '';
@@ -342,12 +351,14 @@ function renderNodo(nodo, payload, depth, parentNombre) {
 
     // Campo con valor
     const valor = getValor(nodo, payload);
+    const label = nombre.endsWith(':') ? nombre : `${nombre}:`;
+
     if (tipoFijo === TIPO_FIJO.TABLA || tipoFijo === TIPO_FIJO.IMAGEN) {
       if (valor) {
-        html += `<div class="campo-block"><b>${nombre}</b><div>${valor}</div></div>`;
+        html += `<div class="campo-block"><b>${label}</b><div>${valor}</div></div>`;
       }
     } else {
-      html += `<div class="campo-line"><b>${nombre}:</b><span class="val">${valor || ''}</span></div>`;
+      html += `<div class="campo-line"><b>${label}</b><span class="val">${valor || ''}</span></div>`;
     }
 
     // Un dato puede tener sub-datos (raro pero posible)
@@ -381,7 +392,7 @@ function renderIdentificacionPaciente(payload) {
   const tipoId = escapeHtml(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || t['TIPO_ID'] || '');
   const numId = escapeHtml(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || t['IDENTIFICACION'] || t['NUMERO_DOCUMENTO'] || '');
   const fechaNac = escapeHtml(formatFecha(b3.FECHA_NACIMIENTO_PACIENTE) || t['FECHA_NACIMIENTO'] || '');
-  const edad = escapeHtml(b3.EDAD_COMPLETA || b3.EDAD_PACIENTE ? b3.EDAD_PACIENTE + ' Años' : t['EDAD'] || '');
+  const edad = escapeHtml(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? b3.EDAD_PACIENTE + ' Años' : t['EDAD'] || ''));
   const genero = escapeHtml(b3.GENERO_PACIENTE === 1 ? 'Masculino' : b3.GENERO_PACIENTE === 2 ? 'Femenino' : t['SEXO'] || t['GENERO'] || '');
   const ocupacion = escapeHtml(b3.OCUPACION || t['OCUPACION'] || '');
   const direccion = escapeHtml(b3.DIRECCION || t['DIRECCION'] || '');
@@ -391,7 +402,6 @@ function renderIdentificacionPaciente(payload) {
   const fechaReg = escapeHtml(formatFecha(b3.FECHA_REGISTRO) || formatFecha(at.FECHA_REGISTRO) || t['FECHA_REGISTRO'] || '');
   const fechaAten = escapeHtml(formatFecha(b3.FECHA_ATENCION) || formatFecha(at.FECHA_ATENCION) || t['FECHA_ATENCION'] || '');
 
-  // Datos extra (estado civil, responsable, etc) pueden no venir en basico_op3, así que intentamos buscarlos en tokens o se omiten.
   const estadoCivil = escapeHtml(t['ESTADO_CIVIL'] || 'No registrado');
   const resp = escapeHtml(t['NOMBRE_ACOMPAÑANTE'] || t['RESPONSABLE'] || 'No registrado');
   const parentesco = escapeHtml(t['PARENTESCO_ACOMPAÑANTE'] || 'No registrado');
@@ -401,60 +411,72 @@ function renderIdentificacionPaciente(payload) {
 
   return `
     <h3 style="font-size: 11px; font-weight: bold; margin: 10px 0 2px 0; text-transform: uppercase;">IDENTIFICACIÓN DEL PACIENTE</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px; table-layout: auto;">
       <tbody>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px; width: 20%;"><b>Apellidos:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px; width: 30%;">${apellidos}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px; width: 20%;"><b>Nombres:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px; width: 30%;">${nombres}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Apellidos:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;">${apellidos}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Nombres:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;">${nombres}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Tipo Identificación:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${tipoId}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Número documento:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${numId}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Identificación:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${tipoId} - ${numId}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha Nac.:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaNac}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Fecha de Nacimiento:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${fechaNac}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Edad:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${edad}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Edad:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${edad}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Género:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${genero}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Género:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${genero}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Ocupación:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${ocupacion}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Ocupación:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${ocupacion}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Dirección:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${direccion}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Teléfono:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${telefono}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Dirección:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${direccion}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Nombre del Cliente:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${cliente}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Convenio:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${convenio}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Teléfono:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${telefono}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Estado Civil:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${estadoCivil}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Fecha registro :</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${fechaReg}</td>
-          <td style="border: 1px solid #000; padding: 3px 6px;"><b>Fecha atención:</b></td>
-          <td style="border: 1px solid #000; padding: 3px 6px;">${fechaAten}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Cliente:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${cliente}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Convenio:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${convenio}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Registro:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaReg}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Atención:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaAten}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Responsable:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${resp}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Parentesco:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${parentesco}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Tel. Resp.:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${telResp}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Etnia:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${etnia}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>País Nac.:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;">${pais}</td>
         </tr>
       </tbody>
     </table>
-    <div style="font-size: 9px; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; page-break-after: avoid;">
-      <span><b>Estado civil:</b> ${estadoCivil}</span>
-      <span><b>Nombre responsable:</b> ${resp}</span>
-      <span><b>Parentesco responsable:</b> ${parentesco}</span>
-      <span><b>Teléfono responsable:</b> ${telResp}</span>
-      <span><b>Pertenencia étnica:</b> ${etnia}</span>
-      <span><b>País nacimiento:</b> ${pais}</span>
-    </div>
   `;
 }
 
@@ -537,6 +559,13 @@ function renderOrdenesYFormulacion(payload) {
   const formulacionRS = payload.clinico.formulacion || [];
   let html = '';
 
+  // Columnas que no aportan valor al paciente y ocupan espacio horizontal
+  const denylist = new Set([
+    'CONSECUTIVO', 'ID_ORDEN', 'TIPO_ORDEN', 'ID_PRESTADOR', 'ID_SERVICIO', 
+    'ID_ESTRUCTURA', 'ID_PLANTILLA', 'ID_PROCEDIMIENTO', 'ID_ATENCION', 
+    'USER_NAME', 'USUARIO', 'ID_EMPLEADO', 'ID_DX', 'ID_ARTICULO', 'ID_BODEGA'
+  ]);
+
   const renderRecordsets = (titulo, recordsets) => {
     let out = '';
     let primero = true;
@@ -546,13 +575,24 @@ function renderOrdenesYFormulacion(payload) {
         out += `<h2 class="seccion">${titulo}</h2>`;
         primero = false;
       }
-      const cols = Object.keys(rs[0]);
+      
+      // Filtrar columnas
+      const allCols = Object.keys(rs[0]);
+      const cols = allCols.filter(c => !denylist.has(c.toUpperCase()));
+      
       out += '<table class="tabla-dinamica"><thead><tr>';
-      for (const c of cols) out += `<th>${escapeHtml(c)}</th>`;
+      for (const c of cols) {
+        // Limpiar nombres de columnas (quitar guiones bajos por espacios para mejor wrap)
+        const label = c.replace(/_/g, ' ');
+        out += `<th>${escapeHtml(label)}</th>`;
+      }
       out += '</tr></thead><tbody>';
+      
       for (const r of rs) {
         out += '<tr>';
-        for (const c of cols) out += `<td>${escapeHtml(r[c])}</td>`;
+        for (const c of cols) {
+          out += `<td>${escapeHtml(r[c])}</td>`;
+        }
         out += '</tr>';
       }
       out += '</tbody></table>';
@@ -600,26 +640,177 @@ function buildEstilos(parametros) {
   const mr = p.MARGEN_DERECHO ?? 10;
 
   return `
-    @page { size: Letter; margin: ${mt}mm ${mr}mm ${mb}mm ${ml}mm; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: ${tamanio}px; color: #000; line-height: ${interlineado}; margin: 0; padding: 0; }
-    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    /* ══ Reset / Base ═════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: ${tamanio}px;
+      color: #000;
+      line-height: ${interlineado};
+      margin: 0;
+      padding: 0;
+    }
+    img { max-width: 100%; height: auto; }
+
+    /* ══ Encabezado ══════════════════════════════════════════ */
+    .header-table {
+      width: auto;
+      min-width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      table-layout: auto;
+    }
     .header-table td { vertical-align: middle; padding: 2px 4px; border: none; }
     .header-center { text-align: center; }
-    .header-right { text-align: right; font-size: 8px; }
-    h2.seccion { font-size: ${tamanio + 2}px; text-transform: uppercase; text-decoration: underline; margin: 12px 0 4px 0; page-break-after: avoid; }
-    h3.seccion { font-size: ${tamanio + 1}px; text-transform: uppercase; text-decoration: underline; margin: 8px 0 3px 0; page-break-after: avoid; }
-    h4.seccion { font-size: ${tamanio}px; font-weight: bold; margin: 6px 0 2px 0; page-break-after: avoid; }
-    .campo-line { margin: 3px 0; page-break-inside: avoid; line-height: 1.5; }
-    .campo-line b { font-weight: bold; padding-right: 4px; display: inline; }
-    .campo-line .val { display: inline; word-break: break-word; white-space: pre-wrap; }
-    .campo-block { margin: 4px 0; }
-    .texto-libre { margin: 4px 0; }
-    .tabla-dinamica { width: 100%; border-collapse: collapse; margin: 4px 0; }
-    .tabla-dinamica th, .tabla-dinamica td { border: 1px solid #000; padding: 2px 4px; vertical-align: top; font-size: ${tamanio}px; }
-    .tabla-dinamica th { background: #f0f0f0; font-weight: bold; }
-    .firma-block { margin-top: 40px; }
+    .header-right  { text-align: right; font-size: 8px; white-space: nowrap; }
+
+    /* ══ Títulos de sección ══════════════════════════════════════ */
+    h1.seccion {
+      font-size: ${tamanio + 3}px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      text-align: center;
+      margin: 10px 0 8px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    h2.seccion {
+      font-size: ${tamanio + 2}px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 16px 0 6px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    h3.seccion {
+      font-size: ${tamanio + 1}px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 12px 0 4px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    h4.seccion {
+      font-size: ${tamanio}px;
+      font-weight: bold;
+      margin: 8px 0 3px 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    /* ══ Campos clínicos ═════════════════════════════════════════ */
+    .campo-line {
+      display: block;
+      clear: both;
+      margin: 6px 0;
+      padding: 2px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      line-height: 1.6;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    .campo-line b  { 
+      font-weight: bold; 
+      padding-right: 6px; 
+      display: inline;
+      vertical-align: top;
+    }
+    .campo-line .val {
+      display: inline;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .campo-block {
+      display: block;
+      clear: both;
+      margin: 12px 0;
+      padding: 4px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .texto-libre {
+      display: block;
+      margin: 10px 0;
+      padding: 2px 0;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    /* ══ TABLAS — clave para evitar superposición ══════════════════════ */
+    .tabla-dinamica {
+      width: auto;
+      min-width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      /* table-layout: auto permite que las columnas se ajusten al contenido.
+         Mantenemos word-break para evitar desbordamientos horizontales. */
+      table-layout: auto;
+    }
+    .tabla-dinamica th,
+    .tabla-dinamica td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      vertical-align: top;
+      font-size: ${tamanio - 1}px;
+      /* Estas dos propiedades son las que evitan que el texto
+         largo rompa el layout de columnas fijas: */
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      line-height: 1.4;
+      /* Evitar que una sola celda se parta en dos páginas: */
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .tabla-dinamica th {
+      background: #f3f4f6;
+      font-weight: bold;
+      text-align: left;
+    }
+    .tabla-dinamica tr:nth-child(even) { background: #fafafa; }
+    /* Mantener filas juntas cuando sea posible */
+    .tabla-dinamica tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* ══ Firma ═══════════════════════════════════════════════ */
+    .firma-block {
+      margin-top: 40px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
     .firma-line { border-top: 1px solid #000; width: 250px; margin: 6px 0 2px 0; }
-    .footer { margin-top: 12px; text-align: right; font-size: 7px; color: #444; }
+
+    /* ══ Pie de página ═══════════════════════════════════════════ */
+    .footer {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 7px;
+      color: #666;
+      border-top: 0.5px solid #ccc;
+      padding-top: 4px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* ══ @page: márgenes de impresión (refuerza lo que pasa Puppeteer) ══ */
+    @page {
+      size: ${buildFormat(parametros)};
+      margin: ${mt}mm ${mr}mm ${mb}mm ${ml}mm;
+    }
+
+    /* ══ @media print: refuerza reglas solo cuando Chromium imprime ══════ */
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .tabla-dinamica { page-break-inside: auto; }
+      .tabla-dinamica tr { page-break-inside: avoid; break-inside: avoid; }
+      .campo-line { page-break-inside: avoid; break-inside: avoid; }
+      .firma-block { page-break-inside: avoid; break-inside: avoid; }
+    }
   `;
 }
 
@@ -643,6 +834,7 @@ function renderHtml(payload) {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>${estilos}</style>
 </head>
 <body>

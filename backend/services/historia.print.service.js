@@ -20,20 +20,16 @@ const Laboratorio = require('./panacea/laboratorioSP');
 const Odontologia = require('./panacea/odontologiaSP');
 const { getIdIps } = require('./panacea/auditContext');
 
+const pLimit = require('p-limit');
+
 /**
  * Recorre la estructura plana de la plantilla y devuelve los IDs de dato
  * únicos que se usan para renderizar el documento.
- *
- * Tras la normalización, la estructura tiene columnas como:
- *   ID_ESTRUCTURA  (int)  — identificador numérico del dato/campo
- *   ORIGEN         (int)  — 1=dato, 2=grupo, 3=sección
- *   ID             (GUID) — PK del nodo en la estructura
  */
 function extraerIdsDatoDeEstructura(estructura) {
   if (!Array.isArray(estructura)) return [];
   const ids = new Set();
   for (const nodo of estructura) {
-    // Solo los nodos con ORIGEN=1 son datos; ORIGEN=2 son grupos, ORIGEN=3 secciones
     if (nodo.ORIGEN !== 1) continue;
     const idDato = nodo.ID_ESTRUCTURA;
     if (idDato != null && Number.isInteger(idDato) && idDato > 0) ids.add(idDato);
@@ -43,12 +39,6 @@ function extraerIdsDatoDeEstructura(estructura) {
 
 /**
  * Imprime la atención completa siguiendo la traza de Panacea.
- *
- * @param {number|string} idAtencion
- * @param {object} [opts]
- * @param {number} [opts.numeroCopias=1]   Número de copias a registrar en STM_COPIAS_IMPRESION
- * @param {boolean} [opts.registrarCopia=true] Si false, no inserta auditoría de copia
- * @returns {Promise<object>} printPayload normalizado
  */
 async function imprimirAtencion(idAtencion, opts = {}) {
   const { numeroCopias = 1, registrarCopia = true } = opts;
@@ -67,7 +57,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     throw new Error(`Atención ${idAtencion} no encontrada en Panacea`);
   }
 
-  // Resolver IDs derivados de la atención (ya normalizados a UPPER_SNAKE_CASE)
+  // Resolver IDs derivados de la atención
   const idIps = atencion.ID_IPS ?? idIpsDefault;
   const idSede = atencion.ID_SEDE ?? 1;
   const idPaciente = atencion.ID_PACIENTE;
@@ -81,10 +71,10 @@ async function imprimirAtencion(idAtencion, opts = {}) {
   const idPlantilla = atencion.ID_PLANTILLA;
 
   if (!idPlantilla) {
-    throw new Error(`Atención ${idAtencion} no tiene ID_PLANTILLA asociada (columnas: ${Object.keys(atencion).join(', ')})`);
+    throw new Error(`Atención ${idAtencion} no tiene ID_PLANTILLA asociada`);
   }
 
-  // ── PASO 1 · Auditoría de copia impresa (read + insert) ──────────────
+  // ── PASO 1 · Auditoría de copia impresa ──────────────────────────────
   let copiaPrevia = [];
   let copiaInsertada = null;
   if (registrarCopia) {
@@ -92,7 +82,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     copiaInsertada = await Historia.registrarCopiaImpresion(idAtencion, numeroCopias);
   }
 
-  // ── PASO 2 · Plantilla, módulos, atención básico (paralelo) ──────────
+  // ── PASO 2 · Plantilla, módulos, básico (paralelo) ──────────────────
   const [plantilla, modulos, atencionBasicoOp5, atencionBasicoOp3] = await Promise.all([
     Dinamico.getPlantilla(idPlantilla),
     Administracion.getModulosFuncionales(8),
@@ -100,21 +90,13 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     Historia.getAtencionBasico(idAtencion, 3),
   ]);
 
-  // ── PASO 3 · Token de atención (macros tipo {{paciente.nombre}}) ─────
+  // ── PASO 3 · Token de atención ──────────────────────────────────────
   const tokensRecordsets = await Historia.poblarTokenAtencion({
-    idPaciente,
-    idPrestador,
-    idEspecialidad,
-    idProcedimiento,
-    idLegalizacionProc,
-    idAutorizacion,
-    idAdmision,
-    idAiu,
-    idAtencion,
-    idConvenio: atencion.ID_CONVENIO ?? 0,
+    idPaciente, idPrestador, idEspecialidad, idProcedimiento,
+    idLegalizacionProc, idAutorizacion, idAdmision, idAiu,
+    idAtencion, idConvenio: atencion.ID_CONVENIO ?? 0,
   });
 
-  // Aplanar los recordsets de tokens en un Map<nombre,valor>
   const tokens = {};
   for (const rs of tokensRecordsets || []) {
     for (const row of rs || []) {
@@ -124,25 +106,12 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     }
   }
 
-  // ── PASO 4 · Catálogos clínicos del paciente, sede, IPS, logo,
-  //            estructura de la plantilla y datos por tipo (paralelo) ──
+  // ── PASO 4 · Catálogos y estructura (paralelo) ──────────────────────
   const [
-    alergias,
-    diagnosticos,
-    sintomas,
-    sede,
-    logoIps,
-    consultaAtenciones,
-    ips,
-    estructura,
-    labDatosTexto,
-    antecedentes,
-    datosDecimal,
-    datosEnteros,
-    datosTexto,
-    datosTabla,
-    datosLista,
-    datosFecha,
+    alergias, diagnosticos, sintomas, sede, logoIps,
+    consultaAtenciones, ips, estructura, labDatosTexto,
+    antecedentes, datosDecimal, datosEnteros, datosTexto,
+    datosTabla, datosLista, datosFecha,
   ] = await Promise.all([
     Historia.getAlergiasPaciente(idPaciente, idIps),
     Historia.getDiagnosticos(idAtencion),
@@ -162,11 +131,14 @@ async function imprimirAtencion(idAtencion, opts = {}) {
     Historia.getDatosFecha(idAtencion),
   ]);
 
-  // ── PASO 5 · Por cada id_dato referenciado en la estructura,
-  //            descargar metadatos (loop de la traza) ──────────────────
+  // ── PASO 5 · Metadatos de datos dinámicos con concurrencia limitada ──
   const idsDato = extraerIdsDatoDeEstructura(estructura);
   console.log(`📄 [HistoriaPrint] Estructura: ${estructura.length} nodos, ${idsDato.length} datos dinámicos`);
-  const metadataList = await Promise.all(idsDato.map((id) => Dinamico.getMetadataDato(id)));
+  
+  // Limitar a 5 datos dinámicos en paralelo (cada uno lanza 14 SPs)
+  const limit = pLimit(5); 
+  const metadataList = await Promise.all(idsDato.map((id) => limit(() => Dinamico.getMetadataDato(id))));
+  
   const datosMeta = new Map();
   for (const m of metadataList) datosMeta.set(m.idDato, m);
 
