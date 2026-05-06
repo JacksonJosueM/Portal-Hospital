@@ -27,6 +27,7 @@ const { runMigrations } = require('./config/migrations');
 const historiasRoutes = require('./routes/historias.routes');
 const laboratoriosRoutes = require('./routes/laboratorios.routes');
 const serviciosRoutes = require('./routes/servicios.routes');
+const envioRoutes = require('./routes/envio.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -66,6 +67,7 @@ app.get('/health', (req, res) => {
 app.use('/historias', historiasRoutes);
 app.use('/laboratorios', laboratoriosRoutes);
 app.use('/servicios', serviciosRoutes);
+app.use('/envio', envioRoutes);
 
 // ── 404 handler ──────────────────────────────────────────────────────────
 app.use((req, res) => {
