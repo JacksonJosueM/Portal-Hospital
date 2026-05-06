@@ -43,14 +43,16 @@ if "!DOC!"=="" (
 if "!ATENCION!"=="" (
   echo.
   echo Enviando historia clinica del paciente !TIPO!-!DOC! ^(ultima atencion cerrada^)...
-  node cli\enviar-historia.js --modo single --tipo !TIPO! --doc !DOC!
+  node cli\enviar-historia.js --modo single --tipo !TIPO! --doc !DOC! --forzar
 ) else (
   echo.
   echo Enviando historia clinica del paciente !TIPO!-!DOC! atencion=!ATENCION!...
-  node cli\enviar-historia.js --modo single --tipo !TIPO! --doc !DOC! --atencion !ATENCION!
+  node cli\enviar-historia.js --modo single --tipo !TIPO! --doc !DOC! --atencion !ATENCION! --forzar
 )
 
 set "RC=%ERRORLEVEL%"
 echo.
 echo Proceso finalizado con codigo de salida: !RC!
+echo.
+pause
 endlocal & exit /b %RC%

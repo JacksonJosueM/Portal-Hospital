@@ -622,9 +622,9 @@ function renderFirma(payload) {
     <div class="firma-block">
       ${firmaImg}
       <div class="firma-line"></div>
-      <div><b>${escapeHtml(nombre)}</b></div>
-      <div>${escapeHtml(ident)}</div>
-      <div>${escapeHtml(prof.DESCRIPCION || '')}</div>
+      <div class="firma-texto"><b>${escapeHtml(nombre)}</b></div>
+      <div class="firma-texto">${escapeHtml(ident)}</div>
+      <div class="firma-texto">${escapeHtml(prof.DESCRIPCION || '')}</div>
     </div>
   `;
 }
@@ -678,9 +678,11 @@ function buildEstilos(parametros) {
       font-size: ${tamanio + 2}px;
       text-transform: uppercase;
       text-decoration: underline;
-      margin: 16px 0 6px 0;
+      margin: 20px 0 8px 0;
       page-break-after: avoid;
       break-after: avoid;
+      clear: both;
+      display: block;
     }
     h3.seccion {
       font-size: ${tamanio + 1}px;
@@ -702,11 +704,11 @@ function buildEstilos(parametros) {
     .campo-line {
       display: block;
       clear: both;
-      margin: 6px 0;
-      padding: 2px 0;
+      margin: 4px 0;
+      padding: 1px 0;
       page-break-inside: avoid;
       break-inside: avoid;
-      line-height: 1.6;
+      line-height: 1.25;
       word-break: break-word;
       overflow-wrap: break-word;
     }
@@ -732,11 +734,12 @@ function buildEstilos(parametros) {
     }
     .texto-libre {
       display: block;
-      margin: 10px 0;
-      padding: 2px 0;
+      margin: 4px 0;
+      padding: 1px 0;
       word-break: break-word;
       overflow-wrap: break-word;
       white-space: pre-wrap;
+      line-height: 1.25;
     }
 
     /* ══ TABLAS — clave para evitar superposición ══════════════════════ */
@@ -782,8 +785,15 @@ function buildEstilos(parametros) {
       margin-top: 40px;
       page-break-inside: avoid;
       break-inside: avoid;
+      clear: both;
+      display: block;
     }
-    .firma-line { border-top: 1px solid #000; width: 250px; margin: 6px 0 2px 0; }
+    .firma-line { border-top: 1px solid #000; width: 250px; margin: 8px 0 6px 0; }
+    .firma-texto {
+      display: block;
+      line-height: 1.25;
+      margin: 2px 0;
+    }
 
     /* ══ Pie de página ═══════════════════════════════════════════ */
     .footer {
