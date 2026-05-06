@@ -488,7 +488,9 @@ function renderEncabezado(payload) {
     : '';
 
   const razonSocial = ips.RAZON_SOCIAL || '';
+  const nit = ips.NUMERO_IDENTIFICACION || ips.NIT || '890980752-3'; // Fallback a NIT del hospital si no llega
   const sigla = ips.SIGLA || '';
+  const lema = ips.LEMA || 'Un hospital que siente'; // Lema institucional
   const nombreSede = sede.NOMBRE || '';
   const direccion = sede.DIRECCION || ips.DIRECCION || '';
   const telefono = sede.TELEFONO || ips.TELEFONO || '';
@@ -499,16 +501,16 @@ function renderEncabezado(payload) {
   });
 
   return `
-    <table class="header-table">
+    <table class="header-table" style="table-layout: fixed; width: 100%;">
       <tr>
-        <td style="width:80px">${logo ? `<img src="${logo}" style="max-width:80px;max-height:80px;">` : ''}</td>
-        <td class="header-center">
+        <td style="width:25%; vertical-align: top;">${logo ? `<img src="${logo}" style="max-width:90px;max-height:90px;">` : ''}</td>
+        <td class="header-center" style="width:50%;">
           <b>${escapeHtml(razonSocial)}</b><br>
-          ${sigla ? escapeHtml(sigla) + '<br>' : ''}
-          ${nombreSede ? escapeHtml(nombreSede) + '<br>' : ''}
-          ${escapeHtml(direccion)} ${telefono ? '· ' + escapeHtml(telefono) : ''}
+          <b>NIT - ${escapeHtml(nit)}</b><br>
+          <b>${escapeHtml(lema)}</b><br>
+          ${escapeHtml(direccion)} - ${escapeHtml(telefono)} - Marinilla - Colombia
         </td>
-        <td class="header-right">
+        <td class="header-right" style="width:25%; vertical-align: top;">
           Fecha impresión: ${fechaImpresion}<br>
           Copia
         </td>
@@ -660,19 +662,23 @@ function buildEstilos(parametros) {
       margin-bottom: 12px;
       table-layout: auto;
     }
-    .header-table td { vertical-align: middle; padding: 2px 4px; border: none; }
+    .header-table td { vertical-align: middle; padding: 2px 4px; border: none; line-height: 1.2; }
     .header-center { text-align: center; }
-    .header-right  { text-align: right; font-size: 8px; white-space: nowrap; }
+    .header-right  { text-align: right; font-size: 10px; font-weight: bold; white-space: nowrap; line-height: 1.3; }
 
     /* ══ Títulos de sección ══════════════════════════════════════ */
     h1.seccion {
-      font-size: ${tamanio + 3}px;
+      font-size: ${tamanio + 4}px;
       text-transform: uppercase;
-      text-decoration: underline;
+      font-style: italic;
+      font-weight: bold;
       text-align: center;
-      margin: 10px 0 8px 0;
+      margin: 24px 0 16px 0;
       page-break-after: avoid;
       break-after: avoid;
+      clear: both;
+      display: block;
+      line-height: 1.2;
     }
     h2.seccion {
       font-size: ${tamanio + 2}px;
