@@ -180,8 +180,8 @@ async function enviarHistoria({
   try {
     await MailService.enviarConAdjunto({
       to: paciente.email,
-      subject: `Historia Clínica - Atención ${idAtencion}`,
-      text: `Hola ${paciente.NOMBRE_COMPLETO},\n\nAdjunto encontrarás tu historia clínica correspondiente a la atención ${idAtencion}.\n\nPor seguridad, el archivo está cifrado. Tu contraseña es tu número de documento (${paciente.numero_documento}).`,
+      subject: 'Envío de historia clínica',
+      text: `Estimado(a) ${paciente.NOMBRE_COMPLETO},\n\nAdjunto encontrará su historia clínica.\n\nPor seguridad, el archivo está protegido con contraseña. Para abrirlo, utilice su número de documento.\n\nEste es un mensaje generado automáticamente por el sistema. Por favor, no responda a este correo.`,
       filename: nombreArchivo,
       content: pdfCifrado,
     });
