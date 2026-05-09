@@ -61,8 +61,8 @@ process.on('SIGTERM', async () => { if (_browser) await _browser.close(); });
 function buildMargin(parametros = {}) {
   const mt = parametros.MARGEN_SUPERIOR ?? 12;
   const mb = parametros.MARGEN_INFERIOR ?? 12;
-  const ml = parametros.MARGEN_IZQUIERDO ?? 10;
-  const mr = parametros.MARGEN_DERECHO ?? 10;
+  const ml = parametros.MARGEN_IZQUIERDO || 25;
+  const mr = parametros.MARGEN_DERECHO || 25;
   return { top: `${mt}mm`, bottom: `${mb}mm`, left: `${ml}mm`, right: `${mr}mm` };
 }
 

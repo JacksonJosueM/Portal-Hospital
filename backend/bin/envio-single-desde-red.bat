@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-set "API=http://10.10.0.15:3001/envio/single"
+set "API=http://localhost:3001/envio/single"
 
 echo.
 echo  Envío de historia clínica (un paciente^)

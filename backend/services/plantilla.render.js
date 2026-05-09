@@ -49,6 +49,16 @@ const TIPO_DATO = {
   TEXTO_LARGO: 17,   // texto lista/largo
 };
 
+// Rótulos que vienen desde la estructura dinámica pero no deben
+// imprimirse en el PDF final porque duplican/ensucian el layout.
+const OMITIR_RUBRICAS_ESTRUCTURA = new Set([
+  'RIPS CONSULTA',
+  'DIAGNOSTICO',
+  'DIAGNÓSTICO',
+  'DIAGNOSTICOS',
+  'DIAGNÓSTICOS',
+]);
+
 // ── Helpers de formato ────────────────────────────────────────────────────
 function escapeHtml(value) {
   if (value == null) return '';
@@ -63,12 +73,25 @@ function escapeHtml(value) {
 
 function formatFecha(value) {
   if (!value) return '';
+  // Si es un objeto Date, usamos sus componentes UTC para evitar el shift de zona horaria local (Bogotá -5h).
+  // Si es string, el constructor new Date() lo interpretará; luego extraemos los componentes UTC.
   const d = value instanceof Date ? value : new Date(value);
+  
   if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleString('es-CO', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  });
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const day = pad(d.getUTCDate());
+  const month = pad(d.getUTCMonth() + 1);
+  const year = d.getUTCFullYear();
+  let hours = d.getUTCHours();
+  const minutes = pad(d.getUTCMinutes());
+  
+  const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // el 0 es 12
+  
+  // Formato: DD/MM/YYYY, HH:mm a. m. (usando valores literales de la DB)
+  return `${day}/${month}/${year}, ${pad(hours)}:${minutes} ${ampm}`;
 }
 
 function formatDecimal(value, decimales = 2) {
@@ -101,6 +124,76 @@ function resolverTokens(texto, tokens) {
     const v = tokens[key];
     return v == null ? '' : escapeHtml(v);
   });
+}
+
+function esTituloGinecoObstetrico(texto = '') {
+  const t = String(texto).toUpperCase();
+  return t.includes('GINECO') || t.includes('OBSTETRI');
+}
+
+/** Bloque ya renderizado por renderProfesionalInfo + renderFirma; omitir el de la plantilla para evitar duplicado y solapamiento en PDF. */
+function esTituloProfesionalSalud(texto = '') {
+  const t = String(texto || '')
+    .toUpperCase()
+    .replace(/:$/, '')
+    .trim();
+  if (!t.includes('PROFESIONAL')) return false;
+  return t.includes('SALUD') || t.includes('LA SALUD');
+}
+
+function normalizeKey(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function getCampo(payload, posiblesClaves = []) {
+  const campos = (payload && payload.campos) || {};
+  const byNorm = new Map();
+  for (const [k, v] of Object.entries(campos)) {
+    byNorm.set(normalizeKey(k), v);
+  }
+  for (const key of posiblesClaves) {
+    const val = byNorm.get(normalizeKey(key));
+    if (val != null && String(val).trim() !== '') return val;
+  }
+  return '';
+}
+
+function formatSoloFecha(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && value.includes('T')) {
+    const [yyyy, mm, dd] = value.split('T')[0].split('-');
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+}
+
+function getFallbackCampoPorNombre(payload, nombreCampo = '') {
+  const n = normalizeKey(String(nombreCampo || '').replace(':', ''));
+  const aliases = {
+    'fecha del peso': ['Fecha del peso'],
+    'peso': ['Peso'],
+    'fecha de la talla': ['Fecha de la talla'],
+    'talla': ['Talla'],
+    'indice de masa corporal': ['Índice de masa corporal', 'Indice de masa corporal'],
+    'temperatura': ['Temperatura'],
+    'circunferencia de cintura': ['Circunferencia de cintura'],
+    'tension arterial sistolica (tas)': ['Tensión arterial sistólica (TAS)', 'Tension arterial sistolica (TAS)'],
+    'tension arterial diastolica (tad)': ['Tensión arterial diastólica (TAD)', 'Tension arterial diastolica (TAD)'],
+    'tam (tension arterial media)': ['TAM (Tensión arterial media)', 'TAM (Tension arterial media)'],
+    'saturacion de oxigeno': ['Saturación de Oxigeno', 'Saturacion de Oxigeno'],
+    'frecuencia respiratoria (min)': ['Frecuencia Respitatoria (min)', 'Frecuencia Respiratoria (min)'],
+    'frecuencia cardiaca': ['Frecuencia Cárdiaca', 'Frecuencia Cardiaca'],
+  };
+  const valor = getCampo(payload, aliases[n] || [nombreCampo]);
+  if (valor == null || String(valor).trim() === '') return '';
+  if (n.startsWith('fecha ')) return formatSoloFecha(valor);
+  return String(valor);
 }
 
 // ── Árbol de la plantilla ─────────────────────────────────────────────────
@@ -148,10 +241,10 @@ function getValor(nodo, payload) {
   // Si es dato del sistema (TIPO_DATO_FIJO=1), buscar en tokens
   if (tipoFijo === TIPO_FIJO.SISTEMA) {
     const paramSp = nodo.PARAMETRO_SP;
-    if (paramSp && payload.tokens[paramSp] != null) {
+    if (paramSp && payload.tokens[paramSp] != null && payload.tokens[paramSp] !== '') {
       return escapeHtml(payload.tokens[paramSp]);
     }
-    return '';
+    return null;
   }
 
   // Determinar el tipo efectivo
@@ -196,9 +289,10 @@ function getValor(nodo, payload) {
             .filter(Boolean)
             .join(', ');
         }
-        return escapeHtml(pickValor(recs));
+        const val = pickValor(recs);
+        return val != null ? escapeHtml(val) : '';
       }
-      return '';
+      return null;
     }
   }
 
@@ -206,16 +300,17 @@ function getValor(nodo, payload) {
   switch (efectivo) {
     case TIPO_FIJO.DECIMAL: {
       const recs = valores.decimal.get(guid);
-      return formatDecimal(pickValor(recs), decimales);
+      return recs && recs.length ? formatDecimal(pickValor(recs), decimales) : null;
     }
     case TIPO_FIJO.ENTERO: {
       const recs = valores.enteros.get(guid);
       const v = pickValor(recs);
-      return v == null ? '' : escapeHtml(parseInt(v, 10));
+      return v == null ? null : escapeHtml(parseInt(v, 10));
     }
     case TIPO_FIJO.SELECCION:
     case TIPO_FIJO.LISTA: {
       const recs = valores.lista.get(guid) || [];
+      if (!recs.length) return null;
       return recs
         .map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? r.DESCRIPCION ?? ''))
         .filter(Boolean)
@@ -223,12 +318,13 @@ function getValor(nodo, payload) {
     }
     case TIPO_FIJO.TABLA: {
       const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
-      return renderTabla(datoMeta, valores.tabla.get(guid) || []);
+      const recs = valores.tabla.get(guid) || [];
+      return recs.length ? renderTabla(datoMeta, recs) : null;
     }
     case TIPO_FIJO.IMAGEN: {
       const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
       const img = datoMeta && datoMeta.imagenes && datoMeta.imagenes[0];
-      if (!img) return '';
+      if (!img) return null;
       const url = img.IMAGEN
         ? bytesToDataUrl(img.IMAGEN, img.TIPO_MIME || 'image/png')
         : (img.RUTA || '');
@@ -244,10 +340,11 @@ function getValor(nodo, payload) {
           if (bucket === 'lista') {
             return recs.map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? '')).filter(Boolean).join(', ');
           }
-          return escapeHtml(pickValor(recs));
+          const val = pickValor(recs);
+          return val != null ? escapeHtml(val) : '';
         }
       }
-      return '';
+      return null;
     }
   }
 }
@@ -293,9 +390,12 @@ function renderTabla(datoMeta, filas) {
 }
 
 // ── Recorrido del árbol (depth-first) ─────────────────────────────────────
-function renderNodo(nodo, payload, depth, parentNombre) {
+function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
   const origen = nodo.ORIGEN;
   const nombre = escapeHtml(nodo.NOMBRE || nodo.DESCRIPCION || '');
+  const nombrePlano = String(nodo.NOMBRE || nodo.DESCRIPCION || '').trim();
+  const nombrePlanoUpper = nombrePlano.toUpperCase();
+  const nombrePlanoUpperClean = nombrePlanoUpper.replace(/:$/, '').trim();
   let html = '';
 
   // Pestaña (sección de nivel superior)
@@ -305,16 +405,34 @@ function renderNodo(nodo, payload, depth, parentNombre) {
     if (upperNombre.includes('INFORMACION DEL PACIENTE') || upperNombre.includes('IDENTIFICACION DEL PACIENTE')) {
       return renderIdentificacionPaciente(payload);
     }
+    if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
+    if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
     if (nombre) html += `<h2 class="seccion">${nombre}</h2>`;
+    
+    // Propagar contexto de gineco-obstetricia desde la pestaña
+    const isGineco = context.isGineco || esTituloGinecoObstetrico(upperNombre);
+    const newContext = { ...context, isGineco };
+
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1, nombre);
+      html += renderNodo(child, payload, depth + 1, nombre, newContext);
     }
     return html;
   }
 
   // Grupo (subsección) — omite el encabezado si repite el nombre de la pestaña padre
   if (origen === 2) {
+    if (OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper) || OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)) {
+      // Mantener los hijos, omitiendo solo el título redundante.
+      for (const child of nodo.children) {
+        html += renderNodo(child, payload, depth + 1, parentNombre, context);
+      }
+      return html;
+    }
+
+    if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
+
     const upperNombre = nombre.toUpperCase();
+    if (context.isMale && esTituloGinecoObstetrico(upperNombre)) return '';
     if (upperNombre.includes('INFORMACION DEL PACIENTE') || upperNombre.includes('IDENTIFICACION DEL PACIENTE')) {
       return renderIdentificacionPaciente(payload);
     }
@@ -323,8 +441,13 @@ function renderNodo(nodo, payload, depth, parentNombre) {
       const tag = depth <= 2 ? 'h3' : 'h4';
       html += `<${tag} class="seccion">${nombre}</${tag}>`;
     }
+
+    // Propagar si estamos dentro de una sección de gineco-obstetricia
+    const isGineco = context.isGineco || esTituloGinecoObstetrico(upperNombre);
+    const newContext = { ...context, isGineco };
+
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1, nombre);
+      html += renderNodo(child, payload, depth + 1, nombre, newContext);
     }
     return html;
   }
@@ -335,9 +458,18 @@ function renderNodo(nodo, payload, depth, parentNombre) {
 
     // Sección decorativa (TIPO_DATO_FIJO=7)
     if (tipoFijo === TIPO_FIJO.SECCION) {
-      if (nombre && nombre !== parentNombre) html += `<h4 class="seccion">${nombre}</h4>`;
+      if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
+      if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
+      if (
+        !OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper)
+        && !OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)
+        && nombre
+        && nombre !== parentNombre
+      ) {
+        html += `<h4 class="seccion">${nombre}</h4>`;
+      }
       for (const child of nodo.children) {
-        html += renderNodo(child, payload, depth + 1, nombre);
+        html += renderNodo(child, payload, depth + 1, nombre, context);
       }
       return html;
     }
@@ -349,21 +481,59 @@ function renderNodo(nodo, payload, depth, parentNombre) {
       return html;
     }
 
-    // Campo con valor
-    const valor = getValor(nodo, payload);
+    // Campo con valor (título duplicado de profesional como nodo suelto)
+    if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
+
+    let valor = getValor(nodo, payload);
+    if (valor === null) valor = ''; // Restaurar la impresión de campos vacíos como Talla, Peso, etc.
+    if (valor === '') {
+      const fallback = getFallbackCampoPorNombre(payload, nombrePlano);
+      if (fallback) valor = escapeHtml(fallback);
+    }
+
+    // Evitar que rótulos técnicos/redundantes salgan como líneas vacías.
+    if (OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper) || OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)) {
+      for (const child of nodo.children) {
+        html += renderNodo(child, payload, depth + 1, nombre, context);
+      }
+      return html;
+    }
+
     const label = nombre.endsWith(':') ? nombre : `${nombre}:`;
 
+    // Filtro para ocultar campos ginecobstétricos exclusivamente a hombres
+    // Solo se aplica si estamos dentro de una sección marcada como GINECO/OBSTETRI o si el nombre es claramente femenino
+    if (context.isMale) {
+      const nUpper = nombre.toUpperCase().replace(':', '').trim();
+      const nUpperNoTilde = nUpper
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const femaleFields = [
+        'G', 'P', 'A', 'V', 'C', 'M', 
+        'FECHA ÚLTIMO PARTO', 'ÚLTIMA CITOLOGÍA', 'MENARQUIA', 'CICLOS', 
+        'F.U.P', 'F.U.R', 'FECHA DE ULTIMO PARTO', 'ULTIMA CITOLOGIA',
+        'ULTIMA FECHA DE MENSTRUACION', 'FECHA ULTIMA MENSTRUACION', 'F.U.M', 'FUM', 'FUR',
+        'FECHA DE ULTIMA MENSTRUACION'
+      ];
+      
+      const esCampoFemenino = femaleFields.includes(nUpper) || femaleFields.includes(nUpperNoTilde);
+      // Solo ocultamos si es campo femenino Y estamos en sección de gineco, o si es un campo largo inequívoco
+      if (esCampoFemenino && (context.isGineco || nUpper.length > 5)) {
+        return ''; // Omitir el campo completo
+      }
+    }
+
     if (tipoFijo === TIPO_FIJO.TABLA || tipoFijo === TIPO_FIJO.IMAGEN) {
-      if (valor) {
+      if (valor !== '') {
         html += `<div class="campo-block"><b>${label}</b><div>${valor}</div></div>`;
       }
     } else {
-      html += `<div class="campo-line"><b>${label}</b><span class="val">${valor || ''}</span></div>`;
+      html += `<div class="campo-line"><b>${label}</b><span class="val">${valor}</span></div>`;
     }
 
     // Un dato puede tener sub-datos (raro pero posible)
     for (const child of nodo.children) {
-      html += renderNodo(child, payload, depth + 1, nombre);
+      html += renderNodo(child, payload, depth + 1, nombre, context);
     }
     return html;
   }
@@ -374,9 +544,18 @@ function renderNodo(nodo, payload, depth, parentNombre) {
 function renderEstructura(payload) {
   const estructura = payload.plantilla.estructura || [];
   const tree = buildTree(estructura);
+
+  const at = payload.atencion || {};
+  const b3 = at.basico_op3 || {};
+  const t = payload.tokens || {};
+  const generoVal = b3.GENERO_PACIENTE === 1 ? 'Masculino' : b3.GENERO_PACIENTE === 2 ? 'Femenino' : t['SEXO'] || t['GENERO'] || '';
+  const generoNormalizado = (generoVal || '').toString().trim().toUpperCase();
+  const isMale = b3.GENERO_PACIENTE === 1
+    || ['M', 'MASCULINO', 'HOMBRE', 'MALE'].includes(generoNormalizado);
+
   let html = '';
   for (const root of tree) {
-    html += renderNodo(root, payload, 0, '');
+    html += renderNodo(root, payload, 0, '', { isMale });
   }
   return html;
 }
@@ -387,11 +566,22 @@ function renderIdentificacionPaciente(payload) {
   const b3 = at.basico_op3 || {};
   const t = payload.tokens || {};
   
+  function formatDateOnly(value) {
+    if (!value) return '';
+    if (typeof value === 'string' && value.includes('T')) {
+      const [yyyy, mm, dd] = value.split('T')[0].split('-');
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+  }
+
   const apellidos = escapeHtml(b3.APELLIDOS_PACIENTE || t['APELLIDOS_PACIENTE'] || t['APELLIDO_PACIENTE'] || t['APELLIDO'] || '');
   const nombres = escapeHtml(b3.NOMBRES_PACIENTE || t['NOMBRES_PACIENTE'] || t['NOMBRE_PACIENTE'] || t['NOMBRE'] || '');
   const tipoId = escapeHtml(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || t['TIPO_ID'] || '');
   const numId = escapeHtml(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || t['IDENTIFICACION'] || t['NUMERO_DOCUMENTO'] || '');
-  const fechaNac = escapeHtml(formatFecha(b3.FECHA_NACIMIENTO_PACIENTE) || t['FECHA_NACIMIENTO'] || '');
+  const fechaNac = escapeHtml(formatDateOnly(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
   const edad = escapeHtml(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? b3.EDAD_PACIENTE + ' Años' : t['EDAD'] || ''));
   const genero = escapeHtml(b3.GENERO_PACIENTE === 1 ? 'Masculino' : b3.GENERO_PACIENTE === 2 ? 'Femenino' : t['SEXO'] || t['GENERO'] || '');
   const ocupacion = escapeHtml(b3.OCUPACION || t['OCUPACION'] || '');
@@ -402,16 +592,63 @@ function renderIdentificacionPaciente(payload) {
   const fechaReg = escapeHtml(formatFecha(b3.FECHA_REGISTRO) || formatFecha(at.FECHA_REGISTRO) || t['FECHA_REGISTRO'] || '');
   const fechaAten = escapeHtml(formatFecha(b3.FECHA_ATENCION) || formatFecha(at.FECHA_ATENCION) || t['FECHA_ATENCION'] || '');
 
-  const estadoCivil = escapeHtml(t['ESTADO_CIVIL'] || 'No registrado');
-  const resp = escapeHtml(t['NOMBRE_ACOMPAÑANTE'] || t['RESPONSABLE'] || 'No registrado');
-  const parentesco = escapeHtml(t['PARENTESCO_ACOMPAÑANTE'] || 'No registrado');
-  const telResp = escapeHtml(t['TELEFONO_ACOMPAÑANTE'] || 'No registrado');
-  const etnia = escapeHtml(t['ETNIA'] || 'No registrado');
-  const pais = escapeHtml(t['PAIS_NACIMIENTO'] || 'No registrado');
+  const estadoCivil = escapeHtml(
+    b3.ESTADO_CIVIL
+    || b3.ESTADO_CIVIL_PACIENTE
+    || b3.NOMBRE_ESTADO_CIVIL
+    || t['ESTADO_CIVIL']
+    || getCampo(payload, ['Estado civil'])
+    || 'No registrado'
+  );
+  const resp = escapeHtml(
+    b3.NOMBRE_RESPONSABLE
+    || b3.ACOMPANANTE
+    || b3.NOMBRE_ACOMPANANTE
+    || t['NOMBRE_ACOMPAÑANTE']
+    || t['RESPONSABLE']
+    || getCampo(payload, ['Nombre responsable', 'Acompañante'])
+    || 'No registrado'
+  );
+  const parentesco = escapeHtml(
+    b3.PARENTESCO_RESPONSABLE
+    || b3.PARENTESCO
+    || b3.PARENTESCO_ACOMPANANTE
+    || t['PARENTESCO_ACOMPAÑANTE']
+    || t['PARENTESCO']
+    || getCampo(payload, ['Parentesco responsable', 'Parentesco'])
+    || 'No registrado'
+  );
+  const telResp = escapeHtml(
+    b3.TELEFONO_RESPONSABLE
+    || b3.TELEFONO_ACOMPANANTE
+    || t['TELEFONO_ACOMPAÑANTE']
+    || t['TELEFONO_RESPONSABLE']
+    || getCampo(payload, ['Teléfono responsable', 'Telefono responsable'])
+    || 'No registrado'
+  );
+  const etnia = escapeHtml(
+    b3.PERTENENCIA_ETNICA
+    || b3.ETNIA
+    || t['PERTENENCIA_ETNICA']
+    || t['ETNIA']
+    || getCampo(payload, ['Pertenencia étnica', 'Pertenencia etnica', 'Etnia'])
+    || 'No registrado'
+  );
+  const pais = escapeHtml(
+    b3.PAIS_NACIMIENTO
+    || b3.PAIS
+    || t['PAIS_NACIMIENTO']
+    || getCampo(payload, ['País nacimiento', 'Pais nacimiento'])
+    || 'No registrado'
+  );
+  const codigoProcedimiento = escapeHtml(b3.CODIGO_PROCEDIMIENTO || getCampo(payload, ['Código procedimiento', 'Codigo procedimiento']));
+  const nombreProcedimiento = escapeHtml(b3.NOMBRE_PROCEDIMIENTO || getCampo(payload, ['Nombre procedimiento']));
+  const lineaProcedimiento = [codigoProcedimiento, nombreProcedimiento].filter(Boolean).join(' - ');
 
   return `
+    ${lineaProcedimiento ? `<div class="campo-line" style="margin: 0 0 6px 0;">${lineaProcedimiento}</div>` : ''}
     <h3 style="font-size: 12px; font-weight: bold; margin: 30px 0 6px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.2;">IDENTIFICACIÓN DEL PACIENTE</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px; table-layout: auto;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; table-layout: auto;">
       <tbody>
         <tr>
           <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Apellidos:</b></td>
@@ -437,46 +674,32 @@ function renderIdentificacionPaciente(payload) {
         </tr>
         <tr>
           <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Dirección:</b></td>
-          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${direccion}</td>
-        </tr>
-        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${direccion}</td>
           <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Teléfono:</b></td>
           <td style="border: 1px solid #000; padding: 5px 8px;">${telefono}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Estado Civil:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${estadoCivil}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Cliente:</b></td>
-          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${cliente}</td>
-        </tr>
-        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Nombre del Cliente:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${cliente}</td>
           <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Convenio:</b></td>
-          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${convenio}</td>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${convenio}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Registro:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha registro :</b></td>
           <td style="border: 1px solid #000; padding: 5px 8px;">${fechaReg}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Atención:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha atención:</b></td>
           <td style="border: 1px solid #000; padding: 5px 8px;">${fechaAten}</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Responsable:</b></td>
-          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${resp}</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Parentesco:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${parentesco}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Tel. Resp.:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${telResp}</td>
-        </tr>
-        <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Etnia:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${etnia}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>País Nac.:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${pais}</td>
         </tr>
       </tbody>
     </table>
+    <div style="font-size: 10px; margin-bottom: 12px; font-family: Arial, sans-serif; line-height: 1.5;">
+      ${estadoCivil !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Estado civil:</b> ${estadoCivil}</span>` : ''}
+      ${resp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Nombre responsable:</b> ${resp}</span>` : ''}
+      ${parentesco !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Parentesco responsable:</b> ${parentesco}</span>` : ''}
+      ${telResp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Teléfono responsable:</b> ${telResp}</span>` : ''}
+      ${etnia !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Pertenencia étnica:</b> ${etnia}</span>` : ''}
+      ${pais !== 'No registrado' ? `<span><b>País nacimiento:</b> ${pais}</span>` : ''}
+    </div>
   `;
 }
 
@@ -522,15 +745,46 @@ function renderEncabezado(payload) {
 function renderDiagnosticos(payload) {
   const dx = payload.clinico.diagnosticos || [];
   if (!dx.length) return '';
-  let html = '<h2 class="seccion">DIAGNÓSTICOS</h2><table class="tabla-dinamica"><thead><tr><th>CIE</th><th>Descripción</th><th>Tipo</th></tr></thead><tbody>';
-  for (const d of dx) {
-    html += `<tr>
-      <td>${escapeHtml(d.CODIGO_CIE)}</td>
-      <td>${escapeHtml(d.DESCRIPCION_CIE)}</td>
-      <td>${escapeHtml(d.DESCRIPCION_TIPO_DX_PPAL || '')}</td>
-    </tr>`;
+
+  const esPrincipal = (d) => {
+    const tipo = String(d.DESCRIPCION_TIPO_DX_PPAL || d.TIPO_DX || d.TIPO || '').toUpperCase();
+    const tipoRips = d.ID_TIPO_DIAGNOSTICO_RIPS;
+    return d.PRINCIPAL === 1
+      || d.ES_PRINCIPAL === 1
+      || tipoRips === 0
+      || tipoRips === '0'
+      || tipo.includes('PRINCIPAL')
+      || tipo.includes('INGRESO');
+  };
+
+  const principal = dx.find(esPrincipal) || dx[0];
+  const relacionados = dx.filter(d => d !== principal);
+
+  const codigoPrincipal = principal.CODIGO_CIE || principal.CIE || '';
+  const descripcionPrincipal = principal.DESCRIPCION_CIE || principal.DESCRIPCION || '';
+  const tipoPrincipal = principal.DESCRIPCION_TIPO_DX_PPAL || principal.TIPO_DX || principal.TIPO || '';
+
+  let html = '<h3 class="seccion">DIAGNÓSTICOS</h3>';
+  html += `<div class="campo-line"><b>Principal Ingreso:</b> <span class="val">${escapeHtml(`${codigoPrincipal} - ${descripcionPrincipal}`.trim().replace(/^-\s*/, ''))}</span></div>`;
+
+  if (tipoPrincipal || relacionados.length) {
+    let lineaRelacionados = '';
+    if (relacionados.length) {
+      const rel = relacionados
+        .map((d, i) => {
+          const cod = d.CODIGO_CIE || d.CIE || '';
+          const des = d.DESCRIPCION_CIE || d.DESCRIPCION || '';
+          return `Relacionado ${i + 1} Ingreso: ${cod} - ${des}`.replace(/\s-\s$/, '');
+        })
+        .join('  ');
+      lineaRelacionados = rel;
+    }
+
+    const baseTipo = tipoPrincipal ? `Tipo principal: ${tipoPrincipal}` : '';
+    const contenido = [baseTipo, lineaRelacionados].filter(Boolean).join('    ');
+    html += `<div class="campo-line"><span class="val">${escapeHtml(contenido)}</span></div>`;
   }
-  html += '</tbody></table>';
+
   return html;
 }
 
@@ -556,55 +810,190 @@ function renderAntecedentes(payload) {
   return html;
 }
 
+function renderSintomas(payload) {
+  const sin = payload.clinico.sintomas || [];
+  if (!sin.length) return '';
+  let html = '<h3 class="seccion">SÍNTOMAS</h3><ul>';
+  for (const s of sin) {
+    html += `<li>${escapeHtml(s.NOMBRE_SINTOMA || s.NOMBRE || '')}</li>`;
+  }
+  html += '</ul>';
+  return html;
+}
+
+function renderCalculosRiesgo(payload) {
+  const cr = payload.clinico.calculosRiesgo || [];
+  if (!cr.length) return '';
+  let html = '<h2 class="seccion">CÁLCULOS DE RIESGO</h2><table class="tabla-dinamica"><thead><tr><th>Nombre</th><th>Interpretación</th><th>Puntaje Total</th><th>Observaciones</th></tr></thead><tbody>';
+  for (const c of cr) {
+    html += `<tr>
+      <td>${escapeHtml(c.NOMBRE || '')}</td>
+      <td>${escapeHtml(c.INTERPRETACION || '')}</td>
+      <td>${escapeHtml(c.TOTAL || '')}</td>
+      <td>${escapeHtml(c.OBSERVACIONES || '')}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderNotas(payload) {
+  const notas = payload.clinico.notas || [];
+  if (!notas.length) return '';
+  let html = '<h2 class="seccion">NOTAS ACLARATORIAS</h2>';
+  for (const n of notas) {
+    html += `<div class="campo-line"><b>${escapeHtml(formatFecha(n.FECHA_REGISTRO))}:</b> <span class="val">${escapeHtml(n.NOTA || '')}</span></div>`;
+  }
+  return html;
+}
+
+function renderGraficas(payload) {
+  const graficas = payload.clinico.graficas || [];
+  if (!graficas.length) return '';
+  let html = '<h2 class="seccion">GRÁFICAS E IMÁGENES DE ATENCIÓN</h2>';
+  for (const g of graficas) {
+    if (!g.GRAFICA_BYTES) continue;
+    const url = bytesToDataUrl(g.GRAFICA_BYTES, g.TIPO_MIME || 'image/png');
+    html += `<div class="campo-block"><b>${escapeHtml(g.NOMBRE || 'Gráfica')}</b><br><img src="${url}" style="max-width:100%; margin-top:8px;"></div>`;
+  }
+  return html;
+}
+
+// Columnas que no aportan valor al paciente y ocupan espacio horizontal
+const denylist = new Set([
+  'CONSECUTIVO', 'ID_ORDEN', 'TIPO_ORDEN', 'ID_PRESTADOR', 'ID_SERVICIO', 
+  'ID_ESTRUCTURA', 'ID_PLANTILLA', 'ID_PROCEDIMIENTO', 'ID_ATENCION', 
+  'USER_NAME', 'USUARIO', 'ID_EMPLEADO', 'ID_DX', 'ID_ARTICULO', 'ID_BODEGA'
+]);
+
+function renderRecordsets(titulo, recordsets) {
+  let out = '';
+  let primero = true;
+  for (const rs of recordsets || []) {
+    if (!rs || rs.length === 0) continue;
+    if (primero) {
+      out += `<h2 class="seccion">${titulo}</h2>`;
+      primero = false;
+    }
+    
+    // Filtrar columnas
+    const allCols = Object.keys(rs[0]);
+    const cols = allCols.filter(c => !denylist.has(c.toUpperCase()));
+    
+    out += '<table class="tabla-dinamica"><thead><tr>';
+    for (const c of cols) {
+      // Limpiar nombres de columnas (quitar guiones bajos por espacios para mejor wrap)
+      const label = c.replace(/_/g, ' ');
+      out += `<th>${escapeHtml(label)}</th>`;
+    }
+    out += '</tr></thead><tbody>';
+    
+    for (const r of rs) {
+      out += '<tr>';
+      for (const c of cols) {
+        out += `<td>${escapeHtml(r[c])}</td>`;
+      }
+      out += '</tr>';
+    }
+    out += '</tbody></table>';
+  }
+  return out;
+}
+
+function renderOrdenesPanacea(recordsets) {
+  if (!recordsets || !recordsets.length) return '';
+  let out = '';
+  let hasData = false;
+  
+  let firstTpl = '';
+  for (const rs of recordsets) {
+    if (rs && rs.length && rs[0].NOMBRE_PLANTILLA) {
+       firstTpl = rs[0].NOMBRE_PLANTILLA;
+       break;
+    }
+  }
+  const titulo = (firstTpl || 'ORDEN DE LABORATORIO').toUpperCase();
+
+  let htmlTable = `
+    <div style="margin-top: 30px; clear: both; display: block; width: 100%; padding: 0 8px;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; table-layout: fixed; clear: both;">
+        <thead>
+          <tr style="border-bottom: 2px solid #000;">
+            <th align="left" style="padding: 6px 4px; font-size: 11px; font-weight: bold; border-bottom: 2px solid #000;">${escapeHtml(titulo)}:</th>
+            <th align="right" style="padding: 6px 4px; font-size: 10px; width: 80px; font-weight: bold; border-bottom: 2px solid #000;">Cantidad</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  for (const rs of recordsets) {
+    if (!rs || !rs.length) continue;
+    hasData = true;
+    
+    // Agrupar por encabezado
+    const grupos = {};
+    for (const r of rs) {
+      const fechaStr = formatFecha(r.FECHA_EXPEDICION);
+      const header = `${fechaStr} - ${r.NOMBRE_PLANTILLA || ''} - ${r.NOMBRE_ESPECIALIDAD || ''} - ${r.NOMBRE_COMPLETO_PRESTADOR || ''}`.toUpperCase();
+      
+      if (!grupos[header]) grupos[header] = [];
+      grupos[header].push(r);
+    }
+    
+    for (const [header, filas] of Object.entries(grupos)) {
+      htmlTable += `<tr><td colspan="2" style="padding: 12px 4px 6px 4px; font-weight: bold; font-size: 10px; border-bottom: 1px solid #eee;">${escapeHtml(header)}</td></tr>`;
+      for (const f of filas) {
+        const nombreSrv = f.NOMBRE_SERVICIO || f.PRUEBA || f.DESCRIPCION_PROCEDIMIENTO || '';
+        const cantidad = f.CANTIDAD || '1';
+        htmlTable += `
+          <tr>
+            <td style="padding: 5px 10px 5px 4px; font-size: 10px; vertical-align: top; word-break: break-word; line-height: 1.3; height: auto;">${escapeHtml(nombreSrv)}</td>
+            <td align="right" style="padding: 5px 4px; font-size: 10px; width: 80px; vertical-align: top; text-align: right; line-height: 1.3; height: auto;">${escapeHtml(cantidad)}</td>
+          </tr>
+        `;
+      }
+    }
+  }
+  
+  htmlTable += `</tbody></table></div>`;
+  
+  return hasData ? htmlTable : '';
+}
+
 function renderOrdenesYFormulacion(payload) {
   const ordenesRS = payload.clinico.ordenes || [];
   const formulacionRS = payload.clinico.formulacion || [];
   let html = '';
-
-  // Columnas que no aportan valor al paciente y ocupan espacio horizontal
-  const denylist = new Set([
-    'CONSECUTIVO', 'ID_ORDEN', 'TIPO_ORDEN', 'ID_PRESTADOR', 'ID_SERVICIO', 
-    'ID_ESTRUCTURA', 'ID_PLANTILLA', 'ID_PROCEDIMIENTO', 'ID_ATENCION', 
-    'USER_NAME', 'USUARIO', 'ID_EMPLEADO', 'ID_DX', 'ID_ARTICULO', 'ID_BODEGA'
-  ]);
-
-  const renderRecordsets = (titulo, recordsets) => {
-    let out = '';
-    let primero = true;
-    for (const rs of recordsets || []) {
-      if (!rs || rs.length === 0) continue;
-      if (primero) {
-        out += `<h2 class="seccion">${titulo}</h2>`;
-        primero = false;
-      }
-      
-      // Filtrar columnas
-      const allCols = Object.keys(rs[0]);
-      const cols = allCols.filter(c => !denylist.has(c.toUpperCase()));
-      
-      out += '<table class="tabla-dinamica"><thead><tr>';
-      for (const c of cols) {
-        // Limpiar nombres de columnas (quitar guiones bajos por espacios para mejor wrap)
-        const label = c.replace(/_/g, ' ');
-        out += `<th>${escapeHtml(label)}</th>`;
-      }
-      out += '</tr></thead><tbody>';
-      
-      for (const r of rs) {
-        out += '<tr>';
-        for (const c of cols) {
-          out += `<td>${escapeHtml(r[c])}</td>`;
-        }
-        out += '</tr>';
-      }
-      out += '</tbody></table>';
-    }
-    return out;
-  };
-
-  html += renderRecordsets('ÓRDENES', ordenesRS);
+  html += renderOrdenesPanacea(ordenesRS);
   html += renderRecordsets('FÓRMULA MÉDICA', formulacionRS);
   return html;
+}
+
+function renderTratamientosOdonto(payload) {
+  const tratamientos = payload.clinico.tratamientosOdonto || [];
+  if (!tratamientos || tratamientos.length === 0) return '';
+  return renderRecordsets('TRATAMIENTOS ODONTOLÓGICOS', tratamientos);
+}
+
+function renderProfesionalInfo(payload) {
+  const prof = payload.profesional && payload.profesional.meta;
+  if (!prof) return '';
+  const nombre = [
+    prof.PRIMER_NOMBRE, prof.SEGUNDO_NOMBRE, prof.PRIMER_APELLIDO, prof.SEGUNDO_APELLIDO,
+  ].filter(Boolean).join(' ');
+
+  const especialidad = prof.DESCRIPCION || prof.DESCRIPCION_ROL || '';
+
+  return `
+    <div class="profesional-print-block" style="margin-top: 20px; page-break-inside: avoid; clear: both; display: block;">
+      <h3 class="seccion">PROFESIONAL DE LA SALUD</h3>
+      <div class="campo-line"><b>Tipo identificación:</b> ${escapeHtml(prof.TIPO_IDENTIFICACION || 'CC')}</div>
+      <div class="campo-line"><b>Número de identificación:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="campo-line"><b>Nombre profesional:</b> ${escapeHtml(nombre)}</div>
+      <div class="campo-line"><b>Registro médico:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="campo-line"><b>Especialidad:</b> ${escapeHtml(especialidad)}</div>
+    </div>
+  `;
 }
 
 function renderFirma(payload) {
@@ -615,18 +1004,21 @@ function renderFirma(payload) {
   ].filter(Boolean).join(' ');
   const ident = `${prof.TIPO_IDENTIFICACION || prof.ID_TIPO_IDENTIFICACION || ''} ${prof.NUMERO_IDENTIFICACION || ''}`.trim();
 
+  const especialidad = prof.DESCRIPCION || prof.DESCRIPCION_ROL || '';
+
   const firmaRec = (payload.profesional.firma || [])[0];
   const firmaImg = firmaRec && firmaRec.IMAGEN
-    ? `<img src="${bytesToDataUrl(firmaRec.IMAGEN, firmaRec.TIPO_MIME || 'image/png')}" style="max-height:60px;">`
+    ? `<img src="${bytesToDataUrl(firmaRec.IMAGEN, firmaRec.TIPO_MIME || 'image/png')}" style="max-height:70px; margin-bottom: 0;">`
     : '';
 
   return `
-    <div class="firma-block">
+    <div class="firma-block" style="margin-top: 15px;">
       ${firmaImg}
-      <div class="firma-line"></div>
+      <div class="firma-line" style="margin-top: 0;"></div>
       <div class="firma-texto"><b>${escapeHtml(nombre)}</b></div>
       <div class="firma-texto">${escapeHtml(ident)}</div>
-      <div class="firma-texto">${escapeHtml(prof.DESCRIPCION || '')}</div>
+      <div class="firma-texto">N° de registro: ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="firma-texto">${escapeHtml(especialidad)}</div>
     </div>
   `;
 }
@@ -638,8 +1030,8 @@ function buildEstilos(parametros) {
   const interlineado = (p.INTERLINEADO || 14) / 10;
   const mt = p.MARGEN_SUPERIOR ?? 12;
   const mb = p.MARGEN_INFERIOR ?? 12;
-  const ml = p.MARGEN_IZQUIERDO ?? 10;
-  const mr = p.MARGEN_DERECHO ?? 10;
+  const ml = p.MARGEN_IZQUIERDO || 25;
+  const mr = p.MARGEN_DERECHO || 25;
 
   return `
     /* ══ Reset / Base ═════════════════════════════════════════════ */
@@ -675,7 +1067,8 @@ function buildEstilos(parametros) {
       text-align: center;
       margin: 24px 0 16px 0;
       page-break-after: avoid;
-      break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
       clear: both;
       display: block;
       line-height: 1.2;
@@ -686,7 +1079,8 @@ function buildEstilos(parametros) {
       text-decoration: underline;
       margin: 20px 0 8px 0;
       page-break-after: avoid;
-      break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
       clear: both;
       display: block;
     }
@@ -696,14 +1090,16 @@ function buildEstilos(parametros) {
       text-decoration: underline;
       margin: 12px 0 4px 0;
       page-break-after: avoid;
-      break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     h4.seccion {
       font-size: ${tamanio}px;
       font-weight: bold;
       margin: 8px 0 3px 0;
       page-break-after: avoid;
-      break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     /* ══ Campos clínicos ═════════════════════════════════════════ */
@@ -729,6 +1125,11 @@ function buildEstilos(parametros) {
       word-break: break-word;
       overflow-wrap: break-word;
       white-space: pre-wrap;
+    }
+    .profesional-print-block .campo-line {
+      position: relative;
+      line-height: 1.35;
+      min-height: 1.35em;
     }
     .campo-block {
       display: block;
@@ -840,7 +1241,20 @@ function renderHtml(payload) {
   const cuerpo = `
     ${renderEncabezado(payload)}
     <h1 class="seccion" style="text-align:center">${escapeHtml(plantillaNombre)}</h1>
+    
+    ${renderAlergias(payload)}
+    ${renderAntecedentes(payload)}
+    ${renderSintomas(payload)}
+    ${renderCalculosRiesgo(payload)}
+
     ${renderEstructura(payload)}
+    
+    ${renderNotas(payload)}
+    ${renderTratamientosOdonto(payload)}
+    ${renderGraficas(payload)}
+    ${renderDiagnosticos(payload)}
+
+    ${renderProfesionalInfo(payload)}
     ${renderOrdenesYFormulacion(payload)}
     ${renderFirma(payload)}
     <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>

@@ -189,10 +189,12 @@ async function imprimirAtencion(idAtencion, opts = {}) {
   let firma = [];
   const userName = atencion.USUARIO ?? atencion.USER_NAME ?? null;
   if (userName) {
-    [profesional, firma] = await Promise.all([
-      Administracion.getUsuario(userName),
-      Administracion.getUsuarioImagenes(userName),
-    ]);
+    profesional = await Administracion.getUsuario(userName);
+    if (profesional) {
+      // La traza indica que STP_USUARIO_IMAGENES usa la cédula ('71730727'), no el userName ('panacea')
+      const idUsuario = profesional.NUMERO_IDENTIFICACION || userName;
+      firma = await Administracion.getUsuarioImagenes(idUsuario);
+    }
   }
 
   // ── PASO 9 · Extraer campos planos para frontend y plantillas fijas ──
@@ -206,6 +208,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
       else if (valoresPorEstructura.decimal.has(guid)) val = valoresPorEstructura.decimal.get(guid)[0].VALOR_DECIMAL;
       else if (valoresPorEstructura.fecha.has(guid)) val = valoresPorEstructura.fecha.get(guid)[0].VALOR_FECHA;
       else if (valoresPorEstructura.lista.has(guid)) val = valoresPorEstructura.lista.get(guid)[0].VALOR_TEXTO;
+      else if (valoresPorEstructura.laboratorioTexto.has(guid)) val = valoresPorEstructura.laboratorioTexto.get(guid)[0].VALOR_TEXTO ?? valoresPorEstructura.laboratorioTexto.get(guid)[0].VALOR;
       
       if (val != null && val !== '') {
         camposFront[nodo.NOMBRE || nodo.DESCRIPCION] = String(val);
