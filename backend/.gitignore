@@ -1,11 +1,18 @@
 # Dependencias
 node_modules/
 
+# Variables de entorno — NUNCA subir al repo
+.env
+.env.local
+.env.*.local
+# (el .env.example SÍ se sube — es la plantilla sin valores reales)
+
 # Logs de envíos (se generan en runtime)
 logs/*.log
 
 # PDFs de prueba
 *.pdf
+debug.html
 
 # Sistema operativo
 .DS_Store
