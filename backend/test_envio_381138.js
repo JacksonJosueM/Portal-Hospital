@@ -19,8 +19,8 @@ require('dotenv').config();
 // ══════════════════════════════════════════════════════
 //  ✏️  CONFIGURA AQUÍ ANTES DE EJECUTAR
 // ══════════════════════════════════════════════════════
-const ID_ATENCION        = 381138;
-const NUMERO_DOCUMENTO   = 'AUTO';   // usa 'AUTO' para que lo tome de la BD
+const ID_ATENCION        = 57552;
+const NUMERO_DOCUMENTO   = '5369102';   // número de documento del paciente
 const TIPO_DOCUMENTO     = 'AUTO';   // CC, TI, CE, etc. o 'AUTO'
 const CORREO_DESTINO_PRUEBA = null;  // ← pon tu correo aquí: 'tucorreo@gmail.com'
                                      //   null = usa el correo que tiene el paciente en la BD
@@ -29,7 +29,7 @@ const FORZAR_REENVIO     = true;     // true = envía aunque ya haya sido enviad
 
 const { portalPool, panaceaPool, sql } = require('./config/db');
 const HistoriaPrintService = require('./services/historia.print.service');
-const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula } = require('./services/plantilla.render');
+const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades } = require('./services/plantilla.render');
 const PdfService  = require('./services/pdf.service');
 const PdfEncrypt  = require('./services/pdf.encrypt');
 const MailService = require('./services/mail.service');
@@ -156,6 +156,21 @@ async function main() {
         adjuntos.push({ filename: `${tipo.sufijo}_${nombreArchivo}.pdf`, content: pdfCifrado });
         console.log(`   ✅ ${tipo.tituloDoc} generada (${Math.round(pdfCifrado.length / 1024)} KB)`);
       }
+    }
+
+    // 🏥 Orden de Incapacidad — bloque de texto formato Panacea
+    const rsIncapacidades = clasificados.incapacidades || [];
+    if (rsIncapacidades.length) {
+      console.log('   📋 Generando Orden de Incapacidad...');
+      const resultado = renderHtmlIncapacidades(payload, rsIncapacidades);
+      if (resultado) {
+        const pdfBuffer = await PdfService.generarPdfBuffer(resultado);
+        const pdfCifrado = await PdfEncrypt.cifrarPdf(pdfBuffer, docPaciente);
+        adjuntos.push({ filename: `Orden_Incapacidad_${nombreArchivo}.pdf`, content: pdfCifrado });
+        console.log(`   ✅ Orden de Incapacidad generada (${Math.round(pdfCifrado.length / 1024)} KB)`);
+      }
+    } else {
+      console.log('   ⏭️  Sin orden de incapacidad — se omite');
     }
 
     // Fórmula Médica — solo medicamentos clasificados

@@ -938,7 +938,25 @@ function renderOrdenesPanacea(recordsets) {
     
     for (const f of rs) {
       const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
-      const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO);
+      let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || f.NOMBRE || f.DESCRIPCION || '');
+
+      // Fallback para filas de incapacidad/licencia donde los campos de descripción vienen null.
+      // Panacea muestra: "23/04/2025 10:00 - INCAPACIDADES O LICENCIAS - MEDICINA GENERAL - SABRINA JOHANA CAAMANO BANOL"
+      if (!desc && f.NOMBRE_PLANTILLA) {
+        const partes = [];
+        if (f.FECHA_EXPEDICION) {
+          const d = new Date(f.FECHA_EXPEDICION);
+          if (!isNaN(d)) {
+            const pad = (n) => String(n).padStart(2, '0');
+            partes.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+          }
+        }
+        partes.push(cleanStr(f.NOMBRE_PLANTILLA));
+        if (f.NOMBRE_ESPECIALIDAD) partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
+        if (f.NOMBRE_COMPLETO_PRESTADOR) partes.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
+        desc = partes.join(' - ');
+      }
+
       const srv = codigo ? `${codigo} - ${desc}` : desc;
       const cant = cleanStr(f.CANTIDAD || '1');
       const area = cleanStr(f.AREA_CORPORAL);
@@ -1408,29 +1426,34 @@ ${cuerpo}
 }
 
 function clasificarTodasLasOrdenes(ordenesRS, formulacionRS) {
-  const laboratorio  = [];
-  const imagenologia = [];
-  const medicamentos = [];
-  const otras        = [];
+  const laboratorio    = [];
+  const imagenologia   = [];
+  const medicamentos   = [];
+  const incapacidades  = [];
+  const otras          = [];
 
   const clasificarRS = (rs, isFormulacion) => {
     if (!rs || !rs.length) return;
-    
-    const labRows = [];
-    const imgRows = [];
-    const medRows = [];
-    const otrRows = [];
+
+    const labRows  = [];
+    const imgRows  = [];
+    const medRows  = [];
+    const incRows  = [];
+    const otrRows  = [];
 
     rs.forEach(row => {
       const plantilla = String(row.NOMBRE_PLANTILLA || '').toUpperCase();
-      const servicio = String(row.NOMBRE_SERVICIO || '').toUpperCase();
-      const desc = String(row.DESCRIPCION_PROCEDIMIENTO || '').toUpperCase();
-      const tipo = String(row.ID_TIPO_ORDEN || '').toUpperCase();
-      
+      const servicio  = String(row.NOMBRE_SERVICIO  || '').toUpperCase();
+      const desc      = String(row.DESCRIPCION_PROCEDIMIENTO || '').toUpperCase();
+      const tipo      = String(row.ID_TIPO_ORDEN    || '').toUpperCase();
+
       const combined = `${plantilla} ${servicio} ${desc} ${tipo}`;
       console.log('Fila encontrada:', combined);
 
-      if (combined.includes('LABORATORIO') || combined.includes('LAB.') || combined.includes('HEMOGRAMA') || combined.includes('ORINA') || combined.includes('VIH') || combined.includes('RPR')) {
+      if (plantilla.includes('INCAPACIDAD') || plantilla.includes('LICENCIA')) {
+        // Las incapacidades/licencias tienen su propio render (bloque de texto, no tabla)
+        incRows.push(row);
+      } else if (combined.includes('LABORATORIO') || combined.includes('LAB.') || combined.includes('HEMOGRAMA') || combined.includes('ORINA') || combined.includes('VIH') || combined.includes('RPR')) {
         labRows.push(row);
       } else if (combined.includes('IMAGEN') || combined.includes('RADIOLOG') || combined.includes('RADIOGRAFIA') || combined.includes('RX') || combined.includes('ECOGRAF') || combined.includes('TAC') || combined.includes('RESONAN')) {
         imgRows.push(row);
@@ -1444,13 +1467,14 @@ function clasificarTodasLasOrdenes(ordenesRS, formulacionRS) {
     if (labRows.length > 0) laboratorio.push(labRows);
     if (imgRows.length > 0) imagenologia.push(imgRows);
     if (medRows.length > 0) medicamentos.push(medRows);
+    if (incRows.length > 0) incapacidades.push(incRows);
     if (otrRows.length > 0) otras.push(otrRows);
   };
 
-  (ordenesRS || []).forEach(rs => clasificarRS(rs, false));
+  (ordenesRS     || []).forEach(rs => clasificarRS(rs, false));
   (formulacionRS || []).forEach(rs => clasificarRS(rs, true));
 
-  return { laboratorio, imagenologia, medicamentos, otras };
+  return { laboratorio, imagenologia, medicamentos, incapacidades, otras };
 }
 
 function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
@@ -1516,4 +1540,70 @@ ${html}
   return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
 }
 
-module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula };
+/**
+ * Genera el HTML completo para un PDF de Orden de Incapacidad.
+ * Formato Panacea: bloque de texto "ORDEN DE INCAPACIDAD:" + descripción — sin tabla.
+ */
+function renderHtmlIncapacidades(payload, recordsets) {
+  const estilos = buildEstilos(payload.parametros);
+  const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  let contenido = '';
+  for (const rs of recordsets || []) {
+    if (!rs || !rs.length) continue;
+    for (const f of rs) {
+      // Construir descripción igual que el fallback de renderOrdenesPanacea
+      let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
+      if (!desc && f.NOMBRE_PLANTILLA) {
+        const partes = [];
+        if (f.FECHA_EXPEDICION) {
+          const d = new Date(f.FECHA_EXPEDICION);
+          if (!isNaN(d)) {
+            const pad = (n) => String(n).padStart(2, '0');
+            partes.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+          }
+        }
+        partes.push(cleanStr(f.NOMBRE_PLANTILLA));
+        if (f.NOMBRE_ESPECIALIDAD)        partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
+        if (f.NOMBRE_COMPLETO_PRESTADOR)  partes.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
+        desc = partes.join(' - ');
+      }
+      if (!desc) continue;
+
+      // Formato Panacea: "ORDEN DE INCAPACIDAD:" en negrita + descripción debajo
+      contenido += `
+        <div style="margin-top: 16px; font-size: 10px; line-height: 1.5;">
+          <strong>ORDEN DE INCAPACIDAD:</strong>
+          <div style="margin-top: 4px; margin-left: 8px;">${escapeHtml(desc)}</div>
+        </div>`;
+    }
+  }
+
+  if (!contenido) return null;
+
+  const html = `
+    ${renderEncabezado(payload)}
+    <h1 class="seccion" style="text-align:center">ORDEN DE INCAPACIDAD</h1>
+    ${renderIdentificacionPaciente(payload)}
+    ${renderDiagnosticos(payload)}
+    ${contenido}
+    ${renderFirma(payload)}
+    <div class="footer">Atenci&oacute;n: ${escapeHtml(payload.atencion.ID || '')}</div>
+  `;
+
+  const body = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${estilos}</style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+
+  return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
+}
+
+module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades };

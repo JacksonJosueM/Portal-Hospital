@@ -16,7 +16,7 @@
 
 const { portalPool, sql } = require('../config/db');
 const HistoriaPrintService = require('./historia.print.service');
-const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula } = require('./plantilla.render');
+const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades } = require('./plantilla.render');
 const PdfService = require('./pdf.service');
 const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
@@ -205,7 +205,18 @@ async function enviarHistoria({
       }
     }
 
-    // 3. Fórmula Médica
+    // 3. Orden de Incapacidad — bloque de texto formato Panacea
+    const rsIncapacidades = clasificados.incapacidades || [];
+    if (rsIncapacidades.length) {
+      const resultado = renderHtmlIncapacidades(payload, rsIncapacidades);
+      if (resultado) {
+        const pdfBufferInc = await PdfService.generarPdfBuffer(resultado);
+        const pdfCifradoInc = await PdfEncrypt.cifrarPdf(pdfBufferInc, paciente.numero_documento);
+        adjuntos.push({ filename: `Orden_Incapacidad_${nombreBase}.pdf`, content: pdfCifradoInc });
+      }
+    }
+
+    // 4. Fórmula Médica
     const rsMedicamentos = clasificados.medicamentos || [];
     if (rsMedicamentos.length) {
       const resultado = renderHtmlFormula(payload, rsMedicamentos);

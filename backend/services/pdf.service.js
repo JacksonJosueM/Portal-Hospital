@@ -13,6 +13,12 @@
  */
 
 const puppeteer = require('puppeteer');
+const pLimit = require('p-limit');
+
+// Máximo 5 páginas de Puppeteer en paralelo.
+// Los demás se encolan automáticamente y se procesan en orden.
+// Con 16 GB RAM esto consume ~1.5 GB máximo bajo carga total.
+const _pdfLimit = pLimit(21);
 
 let _browser = null;
 let _browserLaunchPromise = null;
@@ -87,6 +93,11 @@ function buildFormat(parametros = {}) {
  * @returns {Promise<Buffer>}
  */
 async function generarPdfBuffer({ html, parametros = {} }) {
+  // Encolar si ya hay 5 PDFs generándose en paralelo
+  return _pdfLimit(() => _generarPdfBuffer({ html, parametros }));
+}
+
+async function _generarPdfBuffer({ html, parametros = {} }) {
   let page;
   const startTime = Date.now();
 
