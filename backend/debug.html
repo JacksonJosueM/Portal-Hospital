@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* ══ Reset / Base ═════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9px;
+      color: #000;
+      line-height: 1.4;
+      margin: 0;
+      padding: 0;
+    }
+    img { max-width: 100%; height: auto; }
+
+    /* ══ Encabezado ══════════════════════════════════════════ */
+    .header-table {
+      width: auto;
+      min-width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      table-layout: auto;
+    }
+    .header-table td { vertical-align: middle; padding: 2px 4px; border: none; line-height: 1.2; }
+    .header-center { text-align: center; }
+    .header-right  { text-align: right; font-size: 10px; font-weight: bold; white-space: nowrap; line-height: 1.3; }
+
+    /* ══ Títulos de sección ══════════════════════════════════════ */
+    h1.seccion {
+      font-size: 13px;
+      text-transform: uppercase;
+      font-style: italic;
+      font-weight: bold;
+      text-align: center;
+      margin: 24px 0 16px 0;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      clear: both;
+      display: block;
+      line-height: 1.2;
+    }
+    h2.seccion {
+      font-size: 11px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 20px 0 8px 0;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      clear: both;
+      display: block;
+    }
+    h3.seccion {
+      font-size: 10px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 12px 0 4px 0;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    h4.seccion {
+      font-size: 9px;
+      font-weight: bold;
+      margin: 8px 0 3px 0;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* ══ Campos clínicos ═════════════════════════════════════════ */
+    .campo-line {
+      display: block;
+      clear: both;
+      margin: 4px 0;
+      padding: 1px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      line-height: 1.25;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    .campo-line b  { 
+      font-weight: bold; 
+      padding-right: 6px; 
+      display: inline;
+      vertical-align: top;
+    }
+    .campo-line .val {
+      display: inline;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .profesional-print-block .campo-line {
+      position: relative;
+      line-height: 1.35;
+      min-height: 1.35em;
+    }
+    .campo-block {
+      display: block;
+      clear: both;
+      margin: 12px 0;
+      padding: 4px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .texto-libre {
+      display: block;
+      margin: 4px 0;
+      padding: 1px 0;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      line-height: 1.25;
+    }
+
+    /* ══ TABLAS — clave para evitar superposición ══════════════════════ */
+    .tabla-dinamica {
+      width: auto;
+      min-width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      /* table-layout: auto permite que las columnas se ajusten al contenido.
+         Mantenemos word-break para evitar desbordamientos horizontales. */
+      table-layout: auto;
+    }
+    .tabla-dinamica th,
+    .tabla-dinamica td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      vertical-align: top;
+      font-size: 8px;
+      /* Estas dos propiedades son las que evitan que el texto
+         largo rompa el layout de columnas fijas: */
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      line-height: 1.4;
+      /* Evitar que una sola celda se parta en dos páginas: */
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .tabla-dinamica th {
+      background: #f3f4f6;
+      font-weight: bold;
+      text-align: left;
+    }
+    .tabla-dinamica tr:nth-child(even) { background: #fafafa; }
+    /* Mantener filas juntas cuando sea posible */
+    .tabla-dinamica tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* ══ Firma ═══════════════════════════════════════════════ */
+    .firma-block {
+      margin-top: 40px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      clear: both;
+      display: block;
+    }
+    .firma-line { border-top: 1px solid #000; width: 250px; margin: 8px 0 6px 0; }
+    .firma-texto {
+      display: block;
+      line-height: 1.25;
+      margin: 2px 0;
+    }
+
+    /* ══ Pie de página ═══════════════════════════════════════════ */
+    .footer {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 7px;
+      color: #666;
+      border-top: 0.5px solid #ccc;
+      padding-top: 4px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* ══ @page: márgenes de impresión (refuerza lo que pasa Puppeteer) ══ */
+    @page {
+      size: Letter;
+      margin: 12mm 25mm 12mm 25mm;
+    }
+
+    /* ══ @media print: refuerza reglas solo cuando Chromium imprime ══════ */
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .tabla-dinamica { page-break-inside: auto; }
+      .tabla-dinamica tr { page-break-inside: avoid; break-inside: avoid; }
+      .campo-line { page-break-inside: avoid; break-inside: avoid; }
+      .firma-block { page-break-inside: avoid; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+    
+    <table class="header-table" style="table-layout: fixed; width: 100%;">
+      <tr>
+        <td style="width:25%; vertical-align: top;"></td>
+        <td class="header-center" style="width:50%;">
+          <b></b><br>
+          <b>NIT - 890980752-3</b><br>
+          <b>Un hospital que siente</b><br>
+           -  - Marinilla - Colombia
+        </td>
+        <td class="header-right" style="width:25%; vertical-align: top;">
+          Fecha impresión: 22/05/2026, 11:58 p. m.<br>
+          Copia
+        </td>
+      </tr>
+    </table>
+  
+    <h1 class="seccion" style="text-align:center">ORDEN LABORATORIO</h1>
+    
+    
+    <h3 style="font-size: 12px; font-weight: bold; margin: 30px 0 6px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.2;">IDENTIFICACIÓN DEL PACIENTE</h3>
+    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; table-layout: auto;">
+      <tbody>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Apellidos:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;"></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Nombres:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Identificación:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"> - </td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha Nac.:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Edad:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Género:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Ocupación:</b></td>
+          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Dirección:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;"></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Teléfono:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Nombre del Cliente:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;"></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Convenio:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;"></td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha registro :</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha atención:</b></td>
+          <td style="border: 1px solid #000; padding: 5px 8px;"></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size: 10px; margin-bottom: 12px; font-family: Arial, sans-serif; line-height: 1.5;">
+      
+      
+      
+      
+      
+      
+    </div>
+  
+    
+    
+    
+    <div style="margin-top: 20px; clear: both; display: block; width: 100%; padding: 0 8px;">
+      <h2 class="seccion" style="margin-bottom: 10px;">ORDEN DE LABORATORIO</h2>
+      <table width="100%" border="0" cellspacing="0" cellpadding="4" style="border-collapse: collapse; font-size: 10px; width: 100%;">
+        <thead>
+          <tr style="border-bottom: 1px solid #000;">
+            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 3%;">#</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold;">Servicio/Procedimiento</th>
+            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 7%;">Cantidad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Área corporal</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Lateralidad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Estado</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Prioridad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Tipo uso</th>
+          </tr>
+        </thead>
+        <tbody>
+  
+        <tr>
+          <td align="center" style="padding: 5px 6px; vertical-align: top;">1</td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;">902210 - HEMOGRAMA IV [HEMOGLOBINA HEMATOCRITO RECUENTO DE ERITROCITOS INDICES ERITROCITARIOS Y MORFOLOGIA ELECTRONICA E HISTOGRAMA] METODO AUTOMATICO</td>
+          <td align="center" style="padding: 5px 6px; vertical-align: top;">1</td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;"></td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;"></td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;">Solicitada</td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;">Programada</td>
+          <td style="padding: 5px 6px; vertical-align: top; overflow-wrap: break-word;">Externo</td>
+        </tr>
+      </tbody></table></div>
+    
+    
+    <div class="footer">Atención: 1</div>
+  
+</body>
+</html>

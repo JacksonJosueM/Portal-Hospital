@@ -40,4 +40,25 @@ async function enviarConAdjunto({ to, subject, text, html, filename, content, mi
   return info;
 }
 
-module.exports = { enviarConAdjunto };
+async function enviarConMultiplesAdjuntos({ to, subject, text, html, adjuntos }) {
+  const attachments = adjuntos.map(a => ({
+    filename: a.filename,
+    content: a.content,
+    contentType: a.mimetype || 'application/pdf',
+  }));
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to,
+    subject,
+    text,
+    ...(html ? { html } : {}),
+    attachments,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log(`📧 Correo enviado a ${to} | messageId: ${info.messageId}`);
+  return info;
+}
+
+module.exports = { enviarConAdjunto, enviarConMultiplesAdjuntos };

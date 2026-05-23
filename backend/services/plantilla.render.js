@@ -901,10 +901,7 @@ function renderRecordsets(titulo, recordsets) {
 }
 
 function renderOrdenesPanacea(recordsets) {
-  if (!recordsets || !recordsets.length) return '';
-  let out = '';
   let hasData = false;
-  
   let firstTpl = '';
   for (const rs of recordsets) {
     if (rs && rs.length && rs[0].NOMBRE_PLANTILLA) {
@@ -915,43 +912,59 @@ function renderOrdenesPanacea(recordsets) {
   const titulo = (firstTpl || 'ORDEN DE LABORATORIO').toUpperCase();
 
   let htmlTable = `
-    <div style="margin-top: 30px; clear: both; display: block; width: 100%; padding: 0 8px;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; table-layout: fixed; clear: both;">
+    <div style="margin-top: 20px; clear: both; display: block; width: 100%; padding: 0 8px;">
+      <h2 class="seccion" style="margin-bottom: 10px;">${escapeHtml(titulo)}</h2>
+      <table width="100%" border="0" cellspacing="0" cellpadding="4" style="border-collapse: collapse; font-size: 10px; width: 100%;">
         <thead>
-          <tr style="border-bottom: 2px solid #000;">
-            <th align="left" style="padding: 6px 4px; font-size: 11px; font-weight: bold; border-bottom: 2px solid #000;">${escapeHtml(titulo)}:</th>
-            <th align="right" style="padding: 6px 4px; font-size: 10px; width: 80px; font-weight: bold; border-bottom: 2px solid #000;">Cantidad</th>
+          <tr style="border-bottom: 1px solid #000;">
+            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 3%;">#</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold;">Servicio/Procedimiento</th>
+            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 7%;">Cantidad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Área corporal</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Lateralidad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Estado</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Prioridad</th>
+            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Tipo uso</th>
           </tr>
         </thead>
         <tbody>
   `;
 
+  let idx = 1;
   for (const rs of recordsets) {
     if (!rs || !rs.length) continue;
     hasData = true;
+    const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
     
-    // Agrupar por encabezado
-    const grupos = {};
-    for (const r of rs) {
-      const fechaStr = formatFecha(r.FECHA_EXPEDICION);
-      const header = `${fechaStr} - ${r.NOMBRE_PLANTILLA || ''} - ${r.NOMBRE_ESPECIALIDAD || ''} - ${r.NOMBRE_COMPLETO_PRESTADOR || ''}`.toUpperCase();
-      
-      if (!grupos[header]) grupos[header] = [];
-      grupos[header].push(r);
-    }
-    
-    for (const [header, filas] of Object.entries(grupos)) {
-      htmlTable += `<tr><td colspan="2" style="padding: 12px 4px 6px 4px; font-weight: bold; font-size: 10px; border-bottom: 1px solid #eee;">${escapeHtml(header)}</td></tr>`;
-      for (const f of filas) {
-        const nombreSrv = f.NOMBRE_SERVICIO || f.PRUEBA || f.DESCRIPCION_PROCEDIMIENTO || '';
-        const cantidad = f.CANTIDAD || '1';
-        htmlTable += `
-          <tr>
-            <td style="padding: 5px 10px 5px 4px; font-size: 10px; vertical-align: top; word-break: break-word; line-height: 1.3; height: auto;">${escapeHtml(nombreSrv)}</td>
-            <td align="right" style="padding: 5px 4px; font-size: 10px; width: 80px; vertical-align: top; text-align: right; line-height: 1.3; height: auto;">${escapeHtml(cantidad)}</td>
-          </tr>
-        `;
-      }
+    for (const f of rs) {
+      const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
+      const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO);
+      const srv = codigo ? `${codigo} - ${desc}` : desc;
+      const cant = cleanStr(f.CANTIDAD || '1');
+      const area = cleanStr(f.AREA_CORPORAL);
+      const lat = cleanStr(f.LATERALIDAD);
+      const est = cleanStr(f.ESTADO_ORDEN || f.ESTADO || 'Solicitada');
+      const prio = cleanStr(f.PRIORIDAD || 'Programada');
+      const uso = cleanStr(f.TIPO_USO || 'Externo');
+
+      let srvHtml = escapeHtml(srv);
+      const obs = cleanStr(f.OBSERVACIONES);
+      const com = cleanStr(f.COMENTARIO);
+      if (com) srvHtml += `<div style="margin-top: 4px; font-size: 9px; color: #333;"><b>Comentario:</b> ${escapeHtml(com)}</div>`;
+      if (obs) srvHtml += `<div style="margin-top: 4px; font-size: 9px; color: #333;"><b>Observaciones:</b> ${escapeHtml(obs)}</div>`;
+
+      htmlTable += `
+        <tr>
+          <td align="center" style="padding: 5px 6px; vertical-align: top;">${idx++}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${srvHtml}</td>
+          <td align="center" style="padding: 5px 6px; vertical-align: top;">${escapeHtml(cant)}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(area)}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(lat)}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(est)}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(prio)}</td>
+          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(uso)}</td>
+        </tr>
+      `;
     }
   }
   
@@ -960,12 +973,128 @@ function renderOrdenesPanacea(recordsets) {
   return hasData ? htmlTable : '';
 }
 
+function numeroALetras(num) {
+  const map = { 1: 'uno', 2: 'dos', 3: 'tres', 4: 'cuatro', 5: 'cinco', 6: 'seis', 7: 'siete', 8: 'ocho', 9: 'nueve', 10: 'diez', 11: 'once', 12: 'doce', 15: 'quince', 30: 'treinta', 60: 'sesenta', 100: 'cien' };
+  return map[num] || String(num);
+}
+
+function getFormaFarmaceutica(nombreMedicamento) {
+  const n = String(nombreMedicamento || '').toUpperCase();
+  if (n.includes('DOXICICLINA')) return 'Tableta dispersable';
+  if (n.includes('AMPOLLA')) return 'Ampolla';
+  if (n.includes('TABLETA') || n.includes('TAB')) return 'Tableta';
+  if (n.includes('CAPSULA') || n.includes('CAP')) return 'Cápsula';
+  if (n.includes('CREMA')) return 'Crema';
+  if (n.includes('JARABE')) return 'Jarabe';
+  if (n.includes('SUSPENSION') || n.includes('SUSP')) return 'Suspensión';
+  if (n.includes('SOBRE')) return 'Sobre';
+  if (n.includes('GOTA')) return 'Gota';
+  if (n.includes('UNGÜENTO') || n.includes('UNGUENTO')) return 'Ungüento';
+  const palabras = n.split(/\s+/).filter(Boolean);
+  if (palabras.length) {
+    const ultima = palabras[palabras.length - 1].toLowerCase();
+    return ultima.charAt(0).toUpperCase() + ultima.slice(1);
+  }
+  return 'Unidad';
+}
+
+function renderFormulaMedicaPanacea(formulacionRS, ordenesRS) {
+  const medRsFromOrdenes = (ordenesRS || []).filter(rs =>
+    rs && rs.length && String(rs[0].NOMBRE_PLANTILLA).toUpperCase().includes('MEDICAMENTO')
+  );
+  const allFormulaRS = [...(formulacionRS || []), ...medRsFromOrdenes];
+  
+  const filas = [];
+  for (const rs of allFormulaRS) {
+    if (!rs || !rs.length) continue;
+    for (const r of rs) {
+      filas.push(r);
+    }
+  }
+  if (!filas.length) return '';
+
+  let html = `
+    <h2 class="seccion">FÓRMULA MÉDICA</h2>
+    <table width="100%" border="1" cellspacing="0" cellpadding="4"
+      class="tabla-dinamica"
+      style="border-collapse: collapse; font-size: 10px; margin-top: 12px; width: 100%; table-layout: auto;">
+      <thead>
+        <tr style="background: #f3f4f6;">
+          <th align="center" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 4%;">#</th>
+          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 35%;">Medicamento</th>
+          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 15%;">Vía administración</th>
+          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 28%;">Dosis</th>
+          <th align="left" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 12%;">Cantidad total</th>
+          <th align="center" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 6%;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  let idx = 1;
+  for (const r of filas) {
+    const codigo = r.CODIGO_PROCEDIMIENTO || '';
+    const desc = r.DESCRIPCION_PROCEDIMIENTO || r.PRUEBA || r.NOMBRE_SERVICIO || '';
+    const medicamento = codigo ? `${codigo} - ${desc}` : desc;
+    
+    const viaAdmin = escapeHtml(r.VIA_ADMINISTRACION || r.VIA || 'Oral');
+    
+    // Armar Dosis
+    let dosisText = '';
+    if (r.DOSIS_ESPECIAL_TEXTO) {
+      dosisText = String(r.DOSIS_ESPECIAL_TEXTO).trim();
+    } else {
+      // Fallback si no viene DOSIS_ESPECIAL_TEXTO
+      const dosisVal = r.DOSIS || r.CANTIDAD || '1';
+      dosisText = `${dosisVal} cada 24 horas`;
+    }
+    // Agregar duración
+    const dias = r.DIAS_TRATAMIENTO;
+    if (dias && !dosisText.toLowerCase().includes('durante')) {
+      dosisText += ` durante ${dias} días`;
+    }
+    
+    // Armar Cantidad total
+    let cantTotalVal = r.CANT_DOSIS || r.CANTIDAD_FOFA || r.CANTIDAD_TOTAL || r.CANTIDAD;
+    if (cantTotalVal == null) {
+      cantTotalVal = '1';
+    } else {
+      cantTotalVal = Number(cantTotalVal) > 100 ? Number(cantTotalVal) / 100 : Number(cantTotalVal);
+    }
+    const forma = getFormaFarmaceutica(desc);
+    const cantLetras = numeroALetras(cantTotalVal);
+    const cantidadTotalText = `${cantTotalVal} (${cantLetras}) ${forma}`;
+
+    html += `
+      <tr>
+        <td align="center" style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${idx++}</td>
+        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px; word-break: break-word; line-height: 1.3;">${escapeHtml(medicamento)}</td>
+        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${viaAdmin}</td>
+        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px; line-height: 1.3;">${escapeHtml(dosisText)}</td>
+        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${escapeHtml(cantidadTotalText)}</td>
+        <td align="center" style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">Autorizado</td>
+      </tr>
+    `;
+  }
+
+  html += `</tbody></table>`;
+  return html;
+}
+
 function renderOrdenesYFormulacion(payload) {
   const ordenesRS = payload.clinico.ordenes || [];
   const formulacionRS = payload.clinico.formulacion || [];
+  
+  // Excluir de ordenesPanacea lo que sea de FÓRMULA MÉDICA o MEDICAMENTOS
+  const ordenesSinMeds = ordenesRS.filter(rs => {
+    if (!rs || !rs.length) return false;
+    const tpl = String(rs[0].NOMBRE_PLANTILLA).toUpperCase();
+    return !tpl.includes('MEDICAMENTO');
+  });
+
   let html = '';
-  html += renderOrdenesPanacea(ordenesRS);
-  html += renderRecordsets('FÓRMULA MÉDICA', formulacionRS);
+  html += renderOrdenesPanacea(ordenesSinMeds);
+  html += renderFormulaMedicaPanacea(formulacionRS, ordenesRS);
   return html;
 }
 
@@ -1278,4 +1407,113 @@ ${cuerpo}
   };
 }
 
-module.exports = { renderHtml };
+function clasificarTodasLasOrdenes(ordenesRS, formulacionRS) {
+  const laboratorio  = [];
+  const imagenologia = [];
+  const medicamentos = [];
+  const otras        = [];
+
+  const clasificarRS = (rs, isFormulacion) => {
+    if (!rs || !rs.length) return;
+    
+    const labRows = [];
+    const imgRows = [];
+    const medRows = [];
+    const otrRows = [];
+
+    rs.forEach(row => {
+      const plantilla = String(row.NOMBRE_PLANTILLA || '').toUpperCase();
+      const servicio = String(row.NOMBRE_SERVICIO || '').toUpperCase();
+      const desc = String(row.DESCRIPCION_PROCEDIMIENTO || '').toUpperCase();
+      const tipo = String(row.ID_TIPO_ORDEN || '').toUpperCase();
+      
+      const combined = `${plantilla} ${servicio} ${desc} ${tipo}`;
+      console.log('Fila encontrada:', combined);
+
+      if (combined.includes('LABORATORIO') || combined.includes('LAB.') || combined.includes('HEMOGRAMA') || combined.includes('ORINA') || combined.includes('VIH') || combined.includes('RPR')) {
+        labRows.push(row);
+      } else if (combined.includes('IMAGEN') || combined.includes('RADIOLOG') || combined.includes('RADIOGRAFIA') || combined.includes('RX') || combined.includes('ECOGRAF') || combined.includes('TAC') || combined.includes('RESONAN')) {
+        imgRows.push(row);
+      } else if (combined.includes('MEDICAMENTO') || combined.includes('FARMACIA') || combined.includes('FORMULA') || isFormulacion) {
+        medRows.push(row);
+      } else {
+        otrRows.push(row);
+      }
+    });
+
+    if (labRows.length > 0) laboratorio.push(labRows);
+    if (imgRows.length > 0) imagenologia.push(imgRows);
+    if (medRows.length > 0) medicamentos.push(medRows);
+    if (otrRows.length > 0) otras.push(otrRows);
+  };
+
+  (ordenesRS || []).forEach(rs => clasificarRS(rs, false));
+  (formulacionRS || []).forEach(rs => clasificarRS(rs, true));
+
+  return { laboratorio, imagenologia, medicamentos, otras };
+}
+
+function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
+  const estilos = buildEstilos(payload.parametros);
+  let tablaHtml = renderOrdenesPanacea(recordsets);
+  if (!tablaHtml) return null;
+  
+  const html = `
+    ${renderEncabezado(payload)}
+    <h1 class="seccion" style="text-align:center">${escapeHtml(tituloDoc)}</h1>
+    ${renderIdentificacionPaciente(payload)}
+    ${renderDiagnosticos(payload)}
+    
+    ${tablaHtml}
+    
+    ${renderFirma(payload)}
+    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
+  `;
+  
+  const body = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${estilos}</style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+
+  return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
+}
+
+function renderHtmlFormula(payload, recordsets) {
+  const estilos = buildEstilos(payload.parametros);
+  let tablaHtml = renderFormulaMedicaPanacea(recordsets, []); 
+  if (!tablaHtml) return null;
+  
+  const html = `
+    ${renderEncabezado(payload)}
+    ${renderIdentificacionPaciente(payload)}
+    ${renderDiagnosticos(payload)}
+    
+    ${tablaHtml}
+    
+    ${renderFirma(payload)}
+    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
+  `;
+  
+  const body = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${estilos}</style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+
+  return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
+}
+
+module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula };

@@ -31,7 +31,7 @@
       font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       color: #333333;
       background: #ffffff;
-      overflow: hidden;
+      overflow-y: auto;
       border: 1px solid #ced4da; /* Borde sutil delimitador */
     }
 
@@ -225,21 +225,9 @@
       <form id="formEnvio" onsubmit="return enviar(event);">
 
         <div class="form-group">
-          <label for="tipo">Tipo de documento</label>
-          <select id="tipo" required>
-            <option value="">-- Seleccione --</option>
-            <option value="CC">CC - Cédula de Ciudadanía</option>
-            <option value="TI">TI - Tarjeta de Identidad</option>
-            <option value="CE">CE - Cédula de Extranjería</option>
-            <option value="PT">PT - Permiso por Protección Temporal</option>
-            <option value="PA">PA - Pasaporte</option>
-          </select>
-        </div>
-
-        <div class="form-group">
           <label for="doc">Número de documento</label>
           <input type="text" id="doc" placeholder="Ej. 12345678" maxlength="20" required>
-          <span class="hint">Se enviará la última atención cerrada del paciente.</span>
+          <span class="hint">Se enviará la última atención cerrada. El sistema detecta el tipo automáticamente.</span>
         </div>
 
         <div class="actions">
@@ -293,10 +281,8 @@
     function enviar(ev) {
       if (ev && ev.preventDefault) ev.preventDefault();
 
-      var tipo = trim(document.getElementById('tipo').value);
-      var doc  = trim(document.getElementById('doc').value);
+      var doc = trim(document.getElementById('doc').value);
 
-      if (!tipo) { alert('Seleccione el tipo de documento.'); return false; }
       if (!doc)  { alert('Ingrese el número de documento.');  return false; }
 
       if (!/^[A-Za-z0-9\-]+$/.test(doc)) {
@@ -307,7 +293,7 @@
       var btn = document.getElementById('btnEnviar');
       btn.disabled = true;
       btn.innerText = 'Enviando...';
-      showToast('loading', 'Enviando solicitud...', tipo + '-' + doc);
+      showToast('loading', 'Enviando solicitud...', doc);
 
       try {
         var xhr = new ActiveXObject('Msxml2.XMLHTTP.6.0');
@@ -319,7 +305,7 @@
           btn.innerText = 'Enviar';
           if (xhr.status >= 200 && xhr.status < 300) {
             showToast('ok',
-              'Historia enviada · ' + tipo + '-' + doc,
+              'Historia enviada · ' + doc,
               'El envío se está procesando. Puede registrar otro paciente.');
             try {
               var inputDoc = document.getElementById('doc');
@@ -332,7 +318,7 @@
               'Verifique que el servidor esté activo: ' + API);
           }
         };
-        xhr.send('{"tipoDoc":"' + tipo + '","numDoc":"' + doc + '"}');
+        xhr.send('{"numDoc":"' + doc + '"}');
       } catch (e) {
         btn.disabled = false;
         btn.innerText = 'Enviar';

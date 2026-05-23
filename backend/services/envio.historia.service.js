@@ -16,7 +16,7 @@
 
 const { portalPool, sql } = require('../config/db');
 const HistoriaPrintService = require('./historia.print.service');
-const PlantillaRender = require('./plantilla.render');
+const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula } = require('./plantilla.render');
 const PdfService = require('./pdf.service');
 const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
@@ -70,9 +70,18 @@ const TIPO_DOC_CODIGO = {
 
 async function buscarPaciente(tipo_documento, numero_documento) {
   const p = await portalPool;
+  const tipo = (tipo_documento || '').toString().toUpperCase();
+  
+  if (tipo === 'AUTO' || !tipo) {
+    const result = await p.request()
+      .input('nd', sql.VarChar(50), numero_documento)
+      .query('SELECT TOP 1 id_paciente, NOMBRE_COMPLETO, numero_documento, email FROM vw_pacientes_portal WHERE numero_documento = @nd');
+    return result.recordset[0];
+  }
+
   // tipo_documento puede llegar como texto (CC, PT...) o ya como número
   const codigoTipo = isNaN(tipo_documento)
-    ? (TIPO_DOC_CODIGO[tipo_documento.toUpperCase()] ?? null)
+    ? (TIPO_DOC_CODIGO[tipo] ?? null)
     : parseInt(tipo_documento, 10);
 
   if (codigoTipo === null) {
@@ -152,18 +161,60 @@ async function enviarHistoria({
   }
 
   // ── Paso 4 · Generar PDF ────────────────────────────────────────────────
-  let pdfCifrado;
-  let nombreArchivo;
+  const adjuntos = [];
   let payload;
+  let nombreBase = `JHON_JAIRO`; // default
   try {
     payload = await HistoriaPrintService.imprimirAtencion(idAtencion, {
       registrarCopia: true,
       numeroCopias: 1,
     });
-    const { html, parametros } = PlantillaRender.renderHtml(payload);
+    
+    // Normalizar nombre para archivo
+    nombreBase = String(paciente.NOMBRE_COMPLETO || paciente.numero_documento)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').toUpperCase();
+
+    // 1. Historia Clinica Principal
+    const { html, parametros } = renderHtml(payload);
     const pdfBuffer = await PdfService.generarPdfBuffer({ html, parametros });
-    pdfCifrado = await PdfEncrypt.cifrarPdf(pdfBuffer, paciente.numero_documento);
-    nombreArchivo = `historia_clinica_${paciente.numero_documento}_${idAtencion}.pdf`;
+    const pdfCifrado = await PdfEncrypt.cifrarPdf(pdfBuffer, paciente.numero_documento);
+    adjuntos.push({ filename: `Historia_Clinica_${nombreBase}.pdf`, content: pdfCifrado });
+
+    // 2. Clasificar órdenes y generar PDFs adicionales
+    const clasificados = clasificarTodasLasOrdenes(
+      payload.clinico.ordenes || [],
+      payload.clinico.formulacion || []
+    );
+
+    const tiposOrden = [
+      { key: 'laboratorio',  tituloDoc: 'ORDEN DE LABORATORIO',  tituloTabla: 'ORDEN DE LABORATORIO',  sufijo: 'Orden_Laboratorio' },
+      { key: 'imagenologia', tituloDoc: 'ORDEN DE IMAGENOLOGÍA', tituloTabla: 'ORDEN DE IMAGENOLOGÍA', sufijo: 'Orden_Imagenologia' },
+      { key: 'otras',        tituloDoc: 'ORDEN MÉDICA',          tituloTabla: 'ORDEN MÉDICA',          sufijo: 'Orden_Medica' },
+    ];
+
+    for (const tipo of tiposOrden) {
+      const rsDelTipo = clasificados[tipo.key];
+      if (rsDelTipo && rsDelTipo.length) {
+        const resultado = renderHtmlOrdenPorTipo(payload, tipo.tituloDoc, tipo.tituloTabla, rsDelTipo);
+        if (resultado) {
+          const pdfBufferOrd = await PdfService.generarPdfBuffer(resultado);
+          const pdfCifradoOrd = await PdfEncrypt.cifrarPdf(pdfBufferOrd, paciente.numero_documento);
+          adjuntos.push({ filename: `${tipo.sufijo}_${nombreBase}.pdf`, content: pdfCifradoOrd });
+        }
+      }
+    }
+
+    // 3. Fórmula Médica
+    const rsMedicamentos = clasificados.medicamentos || [];
+    if (rsMedicamentos.length) {
+      const resultado = renderHtmlFormula(payload, rsMedicamentos);
+      if (resultado) {
+        const pdfBufferForm = await PdfService.generarPdfBuffer(resultado);
+        const pdfCifradoForm = await PdfEncrypt.cifrarPdf(pdfBufferForm, paciente.numero_documento);
+        adjuntos.push({ filename: `Formula_Medica_${nombreBase}.pdf`, content: pdfCifradoForm });
+      }
+    }
   } catch (err) {
     const msg = `Error generando/cifrando PDF: ${err.message}`;
     try {
@@ -178,12 +229,13 @@ async function enviarHistoria({
 
   // ── Paso 5 · Enviar Mail ────────────────────────────────────────────────
   try {
-    await MailService.enviarConAdjunto({
+    const listaDocumentos = adjuntos.map((a, i) => `  ${i + 1}. ${a.filename}`).join('\n');
+
+    await MailService.enviarConMultiplesAdjuntos({
       to: paciente.email,
-      subject: 'Envío de historia clínica',
-      text: `Estimado(a) ${paciente.NOMBRE_COMPLETO},\n\nAdjunto encontrará su historia clínica.\n\nPor seguridad, el archivo está protegido con contraseña. Para abrirlo, utilice su número de documento.\n\nEste es un mensaje generado automáticamente por el sistema. Por favor, no responda a este correo.`,
-      filename: nombreArchivo,
-      content: pdfCifrado,
+      subject: 'Envío de historia clínica y órdenes médicas',
+      text: `Estimado(a) ${paciente.NOMBRE_COMPLETO},\n\nAdjunto encontrará los documentos generados en su atención médica:\n\n${listaDocumentos}\n\nPor seguridad, cada archivo está protegido con contraseña. Para abrirlos, utilice su número de documento.\n\nEste es un mensaje generado automáticamente por el sistema. Por favor, no responda a este correo.`,
+      adjuntos,
     });
 
     // ── Paso 6 · Auditoría OK ─────────────────────────────────────────────

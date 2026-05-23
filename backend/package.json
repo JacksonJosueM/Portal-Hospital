@@ -1,7 +1,7 @@
 {
   "name": "portal-hospital-backend",
   "version": "1.0.0",
-  "description": "Backend API del Portal del Paciente - Hospital",
+  "description": "Envío automatizado de historia clínica por correo (Panacea → PDF → mail)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -9,29 +9,22 @@
   },
   "keywords": [
     "hospital",
-    "portal",
-    "paciente",
-    "salud"
+    "historia-clinica",
+    "panacea",
+    "pdf",
+    "envio-correo"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^7.5.0",
-    "express-validator": "^7.2.1",
-    "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
     "msnodesqlv8": "^5.1.5",
     "mssql": "^12.2.1",
     "muhammara": "^6.0.4",
     "nodemailer": "^8.0.4",
     "p-limit": "^3.1.0",
-    "pdfkit": "^0.15.1",
-    "puppeteer": "^24.40.0",
-    "uuid": "^11.1.0"
+    "puppeteer": "^24.40.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

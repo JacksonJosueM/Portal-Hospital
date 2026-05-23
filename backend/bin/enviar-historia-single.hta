@@ -32,7 +32,7 @@
       color: #2c3e50;
       background: #1e6091;
       background: linear-gradient(135deg, #0f3a5f 0%, #1e6091 50%, #4a90b8 100%);
-      overflow: hidden;
+      overflow-y: auto;
     }
 
     body {
@@ -48,7 +48,7 @@
       background: #ffffff;
       border-radius: 14px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-      overflow: hidden;
+      overflow-y: auto;
     }
 
     .header {
@@ -227,22 +227,9 @@
       <form id="formEnvio" onsubmit="return enviar(event);">
 
         <div class="form-group">
-          <label for="tipo">Tipo de documento <span class="required">*</span></label>
-          <select id="tipo" required>
-            <option value="">-- Seleccione --</option>
-            <option value="CC">CC · Cédula de Ciudadanía</option>
-            <option value="TI">TI · Tarjeta de Identidad</option>
-            <option value="CE">CE · Cédula de Extranjería</option>
-            <option value="PT">PT · Permiso por Protección Temporal</option>
-            <option value="PA">PA · Pasaporte</option>
-            
-          </select>
-        </div>
-
-        <div class="form-group">
           <label for="doc">Número de documento <span class="required">*</span></label>
           <input type="text" id="doc" placeholder="Ej. 12345678" maxlength="20" required>
-          <span class="hint">Se enviará la última atención cerrada del paciente.</span>
+          <span class="hint">Se enviará la última atención cerrada del paciente. El sistema detecta el tipo automáticamente.</span>
         </div>
 
         <div class="actions">
@@ -261,10 +248,10 @@
   <script language="JScript">
     // Centrar y dimensionar la ventana
     try {
-      window.resizeTo(560, 580);
+      window.resizeTo(560, 600);
       window.moveTo(
         Math.max(0, (screen.width  - 560) / 2),
-        Math.max(0, (screen.height - 580) / 2)
+        Math.max(0, (screen.height - 600) / 2)
       );
     } catch (e) { /* noop */ }
 
@@ -276,10 +263,10 @@
     function trim(s) { return (s || '').replace(/^\s+|\s+$/g, ''); }
 
     var _toastTimer = null;
-    function showToast(tipo, doc) {
+    function showToast(doc) {
       var t = document.getElementById('toast');
       t.innerHTML =
-        '<span class="toast-title">Historia clinica enviada · ' + tipo + '-' + doc + '</span>' +
+        '<span class="toast-title">Historia clinica enviada · ' + doc + '</span>' +
         '<span class="toast-detail">El envio se esta procesando en segundo plano. Puede registrar otro paciente.</span>';
       t.className = 'toast show';
       if (_toastTimer) { try { clearTimeout(_toastTimer); } catch (e) {} }
@@ -289,10 +276,8 @@
     function enviar(ev) {
       if (ev && ev.preventDefault) ev.preventDefault();
 
-      var tipo = trim(document.getElementById('tipo').value);
-      var doc  = trim(document.getElementById('doc').value);
+      var doc = trim(document.getElementById('doc').value);
 
-      if (!tipo) { alert('Seleccione el tipo de documento.'); return false; }
       if (!doc)  { alert('Ingrese el número de documento.');  return false; }
 
       if (!/^[A-Za-z0-9\-]+$/.test(doc)) {
@@ -302,11 +287,11 @@
 
       // Resolver la ruta del backend (carpeta padre del directorio donde esta la HTA)
       var fso = new ActiveXObject('Scripting.FileSystemObject');
-      var href = '' + location.href;             // file:///C:/.../enviar-historia-single.hta
-      var ruta = href.replace(/^file:\/+/i, ''); // C:/.../enviar-historia-single.hta
+      var href = '' + location.href;
+      var ruta = href.replace(/^file:\/+/i, '');
       ruta = decodeURIComponent(ruta).replace(/\//g, '\\');
-      var binDir     = fso.GetParentFolderName(ruta);   // ...\backend\bin
-      var backendDir = fso.GetParentFolderName(binDir); // ...\backend
+      var binDir     = fso.GetParentFolderName(ruta);
+      var backendDir = fso.GetParentFolderName(binDir);
       var cliScript  = backendDir + '\\cli\\enviar-historia.js';
 
       if (!fso.FileExists(cliScript)) {
@@ -314,18 +299,15 @@
         return false;
       }
 
-      // Ejecutar node en segundo plano, sin ventana de terminal visible.
-      //   shell.Run(cmd, 0, false)  ->  0 = ventana oculta, false = no esperar.
-      // Los logs del CLI se siguen guardando en backend\logs\envios-YYYY-MM-DD.log
+      // Sin --tipo: el CLI/backend detecta automáticamente el tipo de documento
       var cmd = 'cmd.exe /c "cd /d "' + backendDir + '" && ' +
                 'node cli\\enviar-historia.js --modo single ' +
-                '--tipo ' + tipo + ' --doc ' + doc + ' --forzar"';
+                '--doc ' + doc + ' --forzar"';
 
       var shell = new ActiveXObject('WScript.Shell');
       shell.Run(cmd, 0, false);
 
-      // Confirmar al doctor y dejar el formulario listo para el siguiente paciente
-      showToast(tipo, doc);
+      showToast(doc);
 
       try {
         var inputDoc = document.getElementById('doc');

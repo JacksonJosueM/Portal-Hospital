@@ -121,13 +121,13 @@ function leerCsv(rutaArchivo) {
 
 // ── Modos ───────────────────────────────────────────────────────────────────
 async function modoSingle(args, log) {
-  const tipo = (args.tipo || args.t || '').toString().trim().toUpperCase();
+  const tipo = (args.tipo || args.t || 'AUTO').toString().trim().toUpperCase();
   const doc = (args.doc || args.d || '').toString().trim();
   const atencion = args.atencion || args.a || null;
   const forzar = !!args.forzar;
 
-  if (!tipo || !doc) {
-    log.error('Faltan argumentos: --tipo CC --doc 12345 [--atencion 359695]');
+  if (!doc) {
+    log.error('Falta argumento: --doc 12345 [--atencion 359695] [--tipo CC]');
     return { exit: 1, total: 0, ok: 0, err: 0 };
   }
 

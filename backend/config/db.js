@@ -38,7 +38,7 @@ const portalConfig = {
 const panaceaConfig = {
   ...sharedOptions,
   server: process.env.PANACEA_DB_SERVER || portalConfig.server,
-  database: process.env.PANACEA_DB_NAME || 'PANACEA',
+  database: process.env.PANACEA_DB_NAME || 'PRUEBAS',
   user: process.env.PANACEA_DB_USER || portalConfig.user,
   password: process.env.PANACEA_DB_PASSWORD || portalConfig.password,
   port: parseInt(process.env.PANACEA_DB_PORT, 10) || portalConfig.port,
