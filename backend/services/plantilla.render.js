@@ -646,53 +646,61 @@ function renderIdentificacionPaciente(payload) {
   const lineaProcedimiento = [codigoProcedimiento, nombreProcedimiento].filter(Boolean).join(' - ');
 
   return `
-    ${lineaProcedimiento ? `<div class="campo-line" style="margin: 0 0 6px 0;">${lineaProcedimiento}</div>` : ''}
-    <h3 style="font-size: 12px; font-weight: bold; margin: 30px 0 6px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.2;">IDENTIFICACIÓN DEL PACIENTE</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; table-layout: auto;">
+    ${lineaProcedimiento ? `<div class="campo-line" style="margin: 0 0 4px 0;">${lineaProcedimiento}</div>` : ''}
+    <h3 style="font-size: 10px; font-weight: bold; margin: 4px 0 4px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.3;">IDENTIFICACIÓN DEL PACIENTE</h3>
+    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; table-layout: fixed;">
+      <colgroup>
+        <col style="width: 18%">
+        <col style="width: 32%">
+        <col style="width: 18%">
+        <col style="width: 32%">
+      </colgroup>
       <tbody>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Apellidos:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;">${apellidos}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb; width: 15%;"><b>Nombres:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px; width: 35%;">${nombres}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Apellidos:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${apellidos}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Nombres:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${nombres}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Identificación:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${tipoId} - ${numId}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha Nac.:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaNac}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Tipo Identificación:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${tipoId}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Número documento:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${numId}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Edad:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${edad}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Género:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${genero}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha de Nacimiento:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${fechaNac}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Edad:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${edad}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Ocupación:</b></td>
-          <td colspan="3" style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${ocupacion}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Género:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${genero}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Ocupación:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${ocupacion}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Dirección:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${direccion}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Teléfono:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${telefono}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Dirección:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${direccion}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Teléfono:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${telefono}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Nombre del Cliente:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${cliente}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Convenio:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px; word-break: break-word; white-space: normal;">${convenio}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Nombre del Cliente:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${cliente}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Convenio:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${convenio}</td>
         </tr>
         <tr>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha registro :</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaReg}</td>
-          <td style="border: 1px solid #000; padding: 5px 8px; background: #f9fafb;"><b>Fecha atención:</b></td>
-          <td style="border: 1px solid #000; padding: 5px 8px;">${fechaAten}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha registro :</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${fechaReg}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha atención:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${fechaAten}</td>
         </tr>
       </tbody>
     </table>
-    <div style="font-size: 10px; margin-bottom: 12px; font-family: Arial, sans-serif; line-height: 1.5;">
+    <div style="font-size: 10px; margin-bottom: 6px; font-family: Arial, sans-serif; line-height: 1.4;">
       ${estadoCivil !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Estado civil:</b> ${estadoCivil}</span>` : ''}
       ${resp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Nombre responsable:</b> ${resp}</span>` : ''}
       ${parentesco !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Parentesco responsable:</b> ${parentesco}</span>` : ''}
@@ -726,8 +734,8 @@ function renderEncabezado(payload) {
   return `
     <table class="header-table" style="table-layout: fixed; width: 100%;">
       <tr>
-        <td style="width:25%; vertical-align: top;">${logo ? `<img src="${logo}" style="max-width:90px;max-height:90px;">` : ''}</td>
-        <td class="header-center" style="width:50%;">
+        <td style="width:25%; vertical-align: middle;">${logo ? `<img src="${logo}" style="max-width:90px;max-height:90px;">` : ''}</td>
+        <td class="header-center" style="width:50%; vertical-align: middle;">
           <b>${escapeHtml(razonSocial)}</b><br>
           <b>NIT - ${escapeHtml(nit)}</b><br>
           <b>${escapeHtml(lema)}</b><br>
@@ -739,6 +747,7 @@ function renderEncabezado(payload) {
         </td>
       </tr>
     </table>
+    <hr class="header-sep">
   `;
 }
 
@@ -912,19 +921,25 @@ function renderOrdenesPanacea(recordsets) {
   const titulo = (firstTpl || 'ORDEN DE LABORATORIO').toUpperCase();
 
   let htmlTable = `
-    <div style="margin-top: 20px; clear: both; display: block; width: 100%; padding: 0 8px;">
-      <h2 class="seccion" style="margin-bottom: 10px;">${escapeHtml(titulo)}</h2>
-      <table width="100%" border="0" cellspacing="0" cellpadding="4" style="border-collapse: collapse; font-size: 10px; width: 100%;">
+    <div style="margin-top: 14px; clear: both; display: block; width: 100%;">
+      <h3 class="seccion" style="margin-bottom: 6px;">${escapeHtml(titulo)}</h3>
+      <table class="orden-table">
+        <colgroup>
+          <col style="width: 4%">
+          <col style="width: 60%">
+          <col style="width: 9%">
+          <col style="width: 9%">
+          <col style="width: 9%">
+          <col style="width: 9%">
+        </colgroup>
         <thead>
-          <tr style="border-bottom: 1px solid #000;">
-            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 3%;">#</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold;">Servicio/Procedimiento</th>
-            <th align="center" style="padding: 5px 6px; font-weight: bold; width: 7%;">Cantidad</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Área corporal</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Lateralidad</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Estado</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Prioridad</th>
-            <th align="left" style="padding: 5px 6px; font-weight: bold; width: 10%;">Tipo uso</th>
+          <tr>
+            <th style="text-align:center;">#</th>
+            <th>Servicio/Procedimiento</th>
+            <th style="text-align:center;">Cantidad</th>
+            <th>Estado</th>
+            <th>Prioridad</th>
+            <th>Tipo uso</th>
           </tr>
         </thead>
         <tbody>
@@ -968,19 +983,17 @@ function renderOrdenesPanacea(recordsets) {
       let srvHtml = escapeHtml(srv);
       const obs = cleanStr(f.OBSERVACIONES);
       const com = cleanStr(f.COMENTARIO);
-      if (com) srvHtml += `<div style="margin-top: 4px; font-size: 9px; color: #333;"><b>Comentario:</b> ${escapeHtml(com)}</div>`;
-      if (obs) srvHtml += `<div style="margin-top: 4px; font-size: 9px; color: #333;"><b>Observaciones:</b> ${escapeHtml(obs)}</div>`;
+      if (com) srvHtml += `<br><small><b>Comentario:</b> ${escapeHtml(com)}</small>`;
+      if (obs) srvHtml += `<br><small><b>Obs:</b> ${escapeHtml(obs)}</small>`;
 
       htmlTable += `
         <tr>
-          <td align="center" style="padding: 5px 6px; vertical-align: top;">${idx++}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${srvHtml}</td>
-          <td align="center" style="padding: 5px 6px; vertical-align: top;">${escapeHtml(cant)}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(area)}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(lat)}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(est)}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(prio)}</td>
-          <td style="padding: 5px 6px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.4;">${escapeHtml(uso)}</td>
+          <td style="text-align:center;">${idx++}</td>
+          <td>${srvHtml}</td>
+          <td style="text-align:center;">${escapeHtml(cant)}</td>
+          <td>${escapeHtml(est)}</td>
+          <td>${escapeHtml(prio)}</td>
+          <td>${escapeHtml(uso)}</td>
         </tr>
       `;
     }
@@ -1033,19 +1046,25 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
   if (!filas.length) return '';
 
   let html = '';
-  if (showTitle) html += '<h2 class="seccion">FÓRMULA MÉDICA</h2>';
+  if (showTitle) html += '<h3 class="seccion">ORDEN DE MEDICAMENTO:</h3>';
   html += `
-    <table width="100%" border="1" cellspacing="0" cellpadding="4"
-      class="tabla-dinamica"
-      style="border-collapse: collapse; font-size: 10px; margin-top: 12px; width: 100%; table-layout: auto;">
+    <table class="orden-table">
+      <colgroup>
+        <col style="width: 4%">
+        <col style="width: 50%">
+        <col style="width: 10%">
+        <col style="width: 10%">
+        <col style="width: 16%">
+        <col style="width: 10%">
+      </colgroup>
       <thead>
-        <tr style="background: #f3f4f6;">
-          <th align="center" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 4%;">#</th>
-          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 35%;">Medicamento</th>
-          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 15%;">Vía administración</th>
-          <th align="left"  style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 28%;">Dosis</th>
-          <th align="left" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 12%;">Cantidad total</th>
-          <th align="center" style="padding: 5px 6px; border: 1px solid #000; font-weight: bold; width: 6%;">Estado</th>
+        <tr>
+          <th style="text-align:center;">#</th>
+          <th>Medicamento</th>
+          <th style="text-align:center;">Cantidad</th>
+          <th style="text-align:center;">Días<br>Tratamiento</th>
+          <th>Vía administración</th>
+          <th style="text-align:center;">Estado</th>
         </tr>
       </thead>
       <tbody>
@@ -1095,12 +1114,12 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
 
     html += `
       <tr>
-        <td align="center" style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${idx++}</td>
-        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px; word-break: break-word; line-height: 1.3;">${escapeHtml(medicamento)}</td>
-        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${viaAdmin}</td>
-        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px; line-height: 1.3;">${escapeHtml(dosisText)}</td>
-        <td style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">${escapeHtml(cantidadTotalText)}</td>
-        <td align="center" style="padding: 5px 6px; border: 1px solid #000; font-size: 10px;">Autorizado</td>
+        <td style="text-align:center;">${idx++}</td>
+        <td>${escapeHtml(medicamento)}</td>
+        <td style="text-align:center;">${escapeHtml(String(cantTotalVal))}</td>
+        <td style="text-align:center;">${escapeHtml(String(dias || ''))}</td>
+        <td>${viaAdmin}</td>
+        <td style="text-align:center;">Autorizado</td>
       </tr>
     `;
   }
@@ -1201,7 +1220,7 @@ function renderFirma(payload) {
 function buildEstilos(parametros) {
   const p = (parametros && parametros[0]) || {};
   const tamanio = p.TAMANIO_FUENTE || 9;
-  const interlineado = (p.INTERLINEADO || 14) / 10;
+  const interlineado = Math.max((p.INTERLINEADO || 14) / 10, 1.2);
   const mt = p.MARGEN_SUPERIOR ?? 12;
   const mb = p.MARGEN_INFERIOR ?? 12;
   const ml = p.MARGEN_IZQUIERDO || 25;
@@ -1222,24 +1241,24 @@ function buildEstilos(parametros) {
 
     /* ══ Encabezado ══════════════════════════════════════════ */
     .header-table {
-      width: auto;
-      min-width: 100%;
+      width: 100%;
       border-collapse: collapse;
-      margin-bottom: 12px;
-      table-layout: auto;
+      margin-bottom: 0;
+      table-layout: fixed;
     }
-    .header-table td { vertical-align: middle; padding: 2px 4px; border: none; line-height: 1.2; }
-    .header-center { text-align: center; }
-    .header-right  { text-align: right; font-size: 10px; font-weight: bold; white-space: nowrap; line-height: 1.3; }
+    .header-table td { vertical-align: middle; padding: 2px 4px; border: none; line-height: 1.3; }
+    .header-sep { border-bottom: 1px solid #000; margin: 2px 0 6px 0; }
+    .header-center { text-align: center; font-size: 10px; }
+    .header-right  { text-align: right; font-size: 9px; font-weight: bold; white-space: nowrap; line-height: 1.3; vertical-align: top; }
 
     /* ══ Títulos de sección ══════════════════════════════════════ */
     h1.seccion {
-      font-size: ${tamanio + 4}px;
+      font-size: ${tamanio + 2}px;
       text-transform: uppercase;
-      font-style: italic;
+      font-style: normal;
       font-weight: bold;
       text-align: center;
-      margin: 24px 0 16px 0;
+      margin: 8px 0 6px 0;
       page-break-after: avoid;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1248,10 +1267,11 @@ function buildEstilos(parametros) {
       line-height: 1.2;
     }
     h2.seccion {
-      font-size: ${tamanio + 2}px;
+      font-size: ${tamanio + 1}px;
       text-transform: uppercase;
+      font-weight: bold;
       text-decoration: underline;
-      margin: 20px 0 8px 0;
+      margin: 10px 0 4px 0;
       page-break-after: avoid;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1259,10 +1279,11 @@ function buildEstilos(parametros) {
       display: block;
     }
     h3.seccion {
-      font-size: ${tamanio + 1}px;
+      font-size: ${tamanio}px;
       text-transform: uppercase;
+      font-weight: bold;
       text-decoration: underline;
-      margin: 12px 0 4px 0;
+      margin: 8px 0 3px 0;
       page-break-after: avoid;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1270,7 +1291,7 @@ function buildEstilos(parametros) {
     h4.seccion {
       font-size: ${tamanio}px;
       font-weight: bold;
-      margin: 8px 0 3px 0;
+      margin: 6px 0 2px 0;
       page-break-after: avoid;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1280,17 +1301,17 @@ function buildEstilos(parametros) {
     .campo-line {
       display: block;
       clear: both;
-      margin: 4px 0;
+      margin: 3px 0;
       padding: 1px 0;
       page-break-inside: avoid;
       break-inside: avoid;
-      line-height: 1.25;
+      line-height: 1.3;
       word-break: break-word;
       overflow-wrap: break-word;
     }
     .campo-line b  { 
       font-weight: bold; 
-      padding-right: 6px; 
+      padding-right: 4px; 
       display: inline;
       vertical-align: top;
     }
@@ -1308,44 +1329,38 @@ function buildEstilos(parametros) {
     .campo-block {
       display: block;
       clear: both;
-      margin: 12px 0;
-      padding: 4px 0;
+      margin: 8px 0;
+      padding: 2px 0;
       page-break-inside: avoid;
       break-inside: avoid;
     }
     .texto-libre {
       display: block;
-      margin: 4px 0;
+      margin: 3px 0;
       padding: 1px 0;
       word-break: break-word;
       overflow-wrap: break-word;
       white-space: pre-wrap;
-      line-height: 1.25;
+      line-height: 1.3;
     }
 
     /* ══ TABLAS — clave para evitar superposición ══════════════════════ */
     .tabla-dinamica {
-      width: auto;
-      min-width: 100%;
+      width: 100%;
       border-collapse: collapse;
-      margin: 8px 0;
-      /* table-layout: auto permite que las columnas se ajusten al contenido.
-         Mantenemos word-break para evitar desbordamientos horizontales. */
-      table-layout: auto;
+      margin: 6px 0;
+      table-layout: fixed;
     }
     .tabla-dinamica th,
     .tabla-dinamica td {
       border: 1px solid #000;
-      padding: 6px 8px;
+      padding: 4px 6px;
       vertical-align: top;
-      font-size: ${tamanio - 1}px;
-      /* Estas dos propiedades son las que evitan que el texto
-         largo rompa el layout de columnas fijas: */
+      font-size: ${tamanio}px;
       word-break: break-word;
       overflow-wrap: break-word;
       white-space: normal;
-      line-height: 1.4;
-      /* Evitar que una sola celda se parta en dos páginas: */
+      line-height: 1.35;
       page-break-inside: avoid;
       break-inside: avoid;
     }
@@ -1355,35 +1370,54 @@ function buildEstilos(parametros) {
       text-align: left;
     }
     .tabla-dinamica tr:nth-child(even) { background: #fafafa; }
-    /* Mantener filas juntas cuando sea posible */
     .tabla-dinamica tr {
       page-break-inside: avoid;
       break-inside: avoid;
     }
 
+    /* ══ Tablas de órdenes/fórmula (anchos explícitos) ══════════════════ */
+    table.orden-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0;
+      table-layout: fixed;
+      font-size: ${tamanio}px;
+    }
+    table.orden-table th,
+    table.orden-table td {
+      border: 1px solid #000;
+      padding: 4px 6px;
+      vertical-align: top;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      line-height: 1.35;
+    }
+    table.orden-table th { background: #f3f4f6; font-weight: bold; }
+
     /* ══ Firma ═══════════════════════════════════════════════ */
     .firma-block {
-      margin-top: 40px;
+      margin-top: 24px;
       page-break-inside: avoid;
       break-inside: avoid;
       clear: both;
       display: block;
     }
-    .firma-line { border-top: 1px solid #000; width: 250px; margin: 8px 0 6px 0; }
+    .firma-line { border-top: 1px solid #000; width: 200px; margin: 6px 0 4px 0; }
     .firma-texto {
       display: block;
-      line-height: 1.25;
-      margin: 2px 0;
+      line-height: 1.3;
+      margin: 1px 0;
     }
 
     /* ══ Pie de página ═══════════════════════════════════════════ */
     .footer {
-      margin-top: 20px;
+      margin-top: 12px;
       text-align: right;
       font-size: 7px;
       color: #666;
       border-top: 0.5px solid #ccc;
-      padding-top: 4px;
+      padding-top: 2px;
       page-break-inside: avoid;
       break-inside: avoid;
     }

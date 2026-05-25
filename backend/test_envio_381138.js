@@ -222,7 +222,22 @@ async function main() {
     const rsMedicamentos = clasificados.medicamentos || [];
     if (rsMedicamentos.length) {
       console.log('   📋 Generando Fórmula Médica...');
-      const resultado = renderHtmlFormula(payload, rsMedicamentos);
+
+      let datosOrdenFormula = null;
+      let op2RowsFormula = [];
+      try {
+        const allMedRows = rsMedicamentos.flatMap(rs => rs || []);
+        const primeraFilaFormula = allMedRows[0];
+        if (primeraFilaFormula && primeraFilaFormula.ID_ORDEN != null) {
+          const idOrdenF = Number(primeraFilaFormula.ID_ORDEN);
+          op2RowsFormula = await HistoriaSP.getOrdenesFormatosOp2(idOrdenF);
+          datosOrdenFormula = op2RowsFormula[0] || null;
+        }
+      } catch (errF) {
+        console.warn('   ⚠️  No se pudo obtener datos Op2 para Fórmula:', errF.message);
+      }
+
+      const resultado = renderHtmlFormula(payload, rsMedicamentos, datosOrdenFormula, op2RowsFormula);
       if (resultado) {
         const pdfBuffer = await PdfService.generarPdfBuffer(resultado);
         const pdfFormulaCifrado = await PdfEncrypt.cifrarPdf(pdfBuffer, docPaciente);
