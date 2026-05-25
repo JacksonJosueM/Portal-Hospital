@@ -1959,4 +1959,187 @@ ${html}
   return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
 }
 
-module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades };
+/**
+ * Genera el HTML completo para un PDF de Orden de Imagenología.
+ * Formato Panacea completo: encabezado de orden, tabla de paciente estilo fórmula,
+ * diagnósticos, tabla de procedimientos con todas las columnas (área corporal,
+ * lateralidad, estado, prioridad, tipo uso, comentario) y firma.
+ *
+ * @param {object} payload        – printPayload estándar del servicio
+ * @param {Array}  recordsets     – filas de QRY_ORDENES_IMPRESION clasificadas como imagenología
+ * @param {object} datosOrden     – primera fila de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=0
+ * @param {Array}  op1Rows        – filas de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=1
+ */
+function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1Rows = []) {
+  const estilos = buildEstilos(payload.parametros);
+  if (!recordsets || !recordsets.length) return null;
+
+  const at  = payload.atencion || {};
+  const b3  = at.basico_op3 || {};
+  const t   = payload.tokens || {};
+  const dO  = datosOrden || {};
+  const esc = escapeHtml;
+  const cl  = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const pad2  = n => String(n).padStart(2, '0');
+  const fmtDT = (v) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  };
+  const fmtD  = (v) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d)) return String(v);
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+  };
+
+  // ── Datos del paciente ─────────────────────────────────────────────────────
+  const apellidos = esc(cl(b3.APELLIDOS_PACIENTE  || t['APELLIDOS_PACIENTE']  || ''));
+  const nombres   = esc(cl(b3.NOMBRES_PACIENTE    || t['NOMBRES_PACIENTE']    || ''));
+  const tipoId    = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
+  const numId     = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
+  const fechaNac  = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
+  const edad      = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' Años' : '') || t['EDAD'] || ''));
+  const genN      = b3.GENERO_PACIENTE;
+  const genero    = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
+  const ocupacion = esc(cl(b3.OCUPACION || t['OCUPACION'] || ''));
+  const direccion = esc(cl(b3.DIRECCION || t['DIRECCION'] || ''));
+  const telefono  = esc(cl(b3.TELEFONO  || t['TELEFONO']  || ''));
+  const cliente   = esc(cl(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE  || t['CLIENTE']  || ''));
+  const convenio  = esc(cl(b3.NOMBRE_CONVENIO         || at.CONVENIO || t['CONVENIO'] || ''));
+  const fechaReg  = esc(fmtDT(b3.FECHA_REGISTRO  || at.FECHA_REGISTRO));
+  const fechaAten = esc(fmtDT(b3.FECHA_ATENCION  || at.FECHA_ATENCION));
+
+  // ── Datos de la orden ─────────────────────────────────────────────────────
+  const allRows   = (recordsets || []).flatMap(rs => rs || []);
+  const pFila     = allRows[0] || {};
+  const ordenNum  = esc(cl(String(dO.NUMERO_ORDEN  || pFila.NUMERO_ORDEN  || pFila.ID_ORDEN || '')));
+  const ordenTipo = esc(cl(dO.NOMBRE_PLANTILLA || pFila.NOMBRE_PLANTILLA || 'Orden Imagenología'));
+  const ordenCod  = esc(cl(String(dO.ID_TIPO_PLANTILLA || pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
+  const ordenFecha = esc(fmtDT(dO.FECHA_EXPEDICION || pFila.FECHA_EXPEDICION));
+  const observaciones = esc(cl(dO.OBSERVACIONES || pFila.OBSERVACIONES || ''));
+
+  const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
+  const viaN      = dO.ID_ORIGEN_VIA_INGRESO;
+  const viaIngreso = esc(VIA_MAP[viaN] != null ? VIA_MAP[viaN] : cl(dO.NOMBRE_VIA_INGRESO || pFila.NOMBRE_VIA_INGRESO || b3.NOMBRE_VIA_INGRESO || t['VIA_INGRESO'] || ''));
+  const tipoUsr   = esc(cl(dO.TIPO_USUARIO || pFila.TIPO_USUARIO || b3.TIPO_USUARIO || at.TIPO_USUARIO || t['TIPO_USUARIO'] || ''));
+  const vigDesde  = fmtD(dO.FECHA_INICIO    || dO.VIGENCIA_DESDE  || pFila.VIGENCIA_DESDE);
+  const vigHasta  = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA);
+  const vigencia  = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
+
+  // ── Estilos de celda ──────────────────────────────────────────────────────
+  const thS = 'padding:3px 5px; border:1px solid #000; background:#d9d9d9; font-weight:bold; font-size:9.5px; line-height:1.3; white-space:nowrap;';
+  const tdS = 'padding:3px 5px; border:1px solid #000; font-size:9.5px; line-height:1.3; word-break:break-word;';
+
+  // ── Encabezado de orden ───────────────────────────────────────────────────
+  const ordenHeaderHtml = `
+    <div style="font-size:9.5px; margin-top:6px; line-height:1.5;">
+      <b>Orden N&ordm;: ${ordenNum}</b>
+      &nbsp;&nbsp; ${ordenTipo}
+      &nbsp;&nbsp; C&oacute;digo: ${ordenCod}
+      &nbsp;&nbsp; Fecha y hora: ${ordenFecha}
+    </div>`;
+
+  // ── Tabla del paciente ────────────────────────────────────────────────────
+  const tablaPaciente = `
+    <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
+      <colgroup>
+        <col style="width:16%"><col style="width:34%"><col style="width:16%"><col style="width:34%">
+      </colgroup>
+      <tr>
+        <td style="${thS}">Apellidos:</td><td style="${tdS}">${apellidos}</td>
+        <td style="${thS}">Nombres:</td><td style="${tdS}">${nombres}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">Tipo Identificaci&oacute;n:</td><td style="${tdS}">${tipoId}</td>
+        <td style="${thS}">N&uacute;mero documento:</td><td style="${tdS}">${numId}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">Fecha de Nacimiento:</td><td style="${tdS}">${fechaNac}</td>
+        <td style="${thS}">Edad:</td><td style="${tdS}">${edad}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">G&eacute;nero:</td><td style="${tdS}">${genero}</td>
+        <td style="${thS}">Ocupaci&oacute;n:</td><td style="${tdS}">${ocupacion}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">Direcci&oacute;n:</td><td style="${tdS}">${direccion}</td>
+        <td style="${thS}">Tel&eacute;fono:</td><td style="${tdS}">${telefono}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">Fecha registro :</td><td style="${tdS}">${fechaReg}</td>
+        <td style="${thS}">Fecha atenci&oacute;n:</td><td style="${tdS}">${fechaAten}</td>
+      </tr>
+      <tr>
+        <td style="${thS}">Nombre del Cliente:</td><td style="${tdS}">${cliente}</td>
+        <td style="${thS}">Convenio:</td><td style="${tdS}">${convenio}</td>
+      </tr>
+    </table>`;
+
+  // ── Diagnósticos compactos ────────────────────────────────────────────────
+  const dxList = (payload.clinico && payload.clinico.diagnosticos) || [];
+  let dxHtml = '';
+  if (dxList.length) {
+    const esPpal = (d) => {
+      const tipo = String(d.DESCRIPCION_TIPO_DX_PPAL || d.TIPO_DX || d.TIPO || '').toUpperCase();
+      return d.PRINCIPAL === 1 || d.ES_PRINCIPAL === 1
+        || d.ID_TIPO_DIAGNOSTICO_RIPS === 0 || d.ID_TIPO_DIAGNOSTICO_RIPS === '0'
+        || tipo.includes('PRINCIPAL') || tipo.includes('INGRESO');
+    };
+    const principal   = dxList.find(esPpal) || dxList[0];
+    const relacionados = dxList.filter(d => d !== principal);
+
+    const codPpal  = esc(cl(principal.CODIGO_CIE || principal.CIE || principal.CODIGO_DX || ''));
+    const tipoPpal = esc(cl(principal.DESCRIPCION_TIPO_DX_PPAL || principal.TIPO_DX || ''));
+
+    let primeraLinea = `<b>Diagn&oacute;sticos</b>Principal Ingreso: ${codPpal}`;
+    if (tipoPpal) primeraLinea += `&nbsp;&nbsp;Tipo principal: ${tipoPpal}`;
+
+    const relLineas = relacionados.map((d, i) => {
+      const cod = esc(cl(d.CODIGO_CIE || d.CIE || d.CODIGO_DX || ''));
+      return `<div style="font-size:9.5px; line-height:1.35;">Relacionado ${i + 1} Ingreso: ${cod}</div>`;
+    }).join('');
+
+    dxHtml = `<div style="font-size:9.5px; margin-top:6px; line-height:1.35;">
+      <div>${primeraLinea}</div>${relLineas}
+      <div>Observaciones: ${observaciones}</div>
+    </div>`;
+  }
+
+  // ── Tabla de procedimientos ───────────────────────────────────────────────
+  // Usar las filas de OPERACION=1 si están disponibles (tienen AREA_CORPORAL,
+  // LATERALIDAD, ESTADO, PRIORIDAD, TIPO_USO, COMENTARIO); si no, usar las de ordenes.
+  const rowsParaTabla = op1Rows && op1Rows.length ? [op1Rows] : recordsets;
+  const tablaHtml = renderOrdenesPanacea(rowsParaTabla);
+  if (!tablaHtml) return null;
+
+  const html = `
+    <div style="padding: 0 12mm 0 6mm;">
+      ${renderEncabezado(payload)}
+      ${ordenHeaderHtml}
+      ${tablaPaciente}
+      ${dxHtml}
+      ${tablaHtml}
+      ${renderFirma(payload)}
+      <div class="footer">Atenci&oacute;n: ${esc(String(at.ID || ''))}</div>
+    </div>
+  `;
+
+  const body = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>${estilos}</style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+
+  return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
+}
+
+module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia };

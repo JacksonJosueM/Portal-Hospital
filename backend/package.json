@@ -21,7 +21,7 @@
     "express": "^5.2.1",
     "msnodesqlv8": "^5.1.5",
     "mssql": "^12.2.1",
-    "muhammara": "^6.0.4",
+    "muhammara": "^6.0.5",
     "nodemailer": "^8.0.4",
     "p-limit": "^3.1.0",
     "puppeteer": "^24.40.0"

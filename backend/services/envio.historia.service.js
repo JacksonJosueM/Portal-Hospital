@@ -16,7 +16,7 @@
 
 const { portalPool, sql } = require('../config/db');
 const HistoriaPrintService = require('./historia.print.service');
-const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades } = require('./plantilla.render');
+const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia } = require('./plantilla.render');
 const PdfService = require('./pdf.service');
 const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
@@ -190,9 +190,8 @@ async function enviarHistoria({
     );
 
     const tiposOrden = [
-      { key: 'laboratorio',  tituloDoc: 'ORDEN DE LABORATORIO',  tituloTabla: 'ORDEN DE LABORATORIO',  sufijo: 'Orden_Laboratorio' },
-      { key: 'imagenologia', tituloDoc: 'ORDEN DE IMAGENOLOGÍA', tituloTabla: 'ORDEN DE IMAGENOLOGÍA', sufijo: 'Orden_Imagenologia' },
-      { key: 'otras',        tituloDoc: 'ORDEN MÉDICA',          tituloTabla: 'ORDEN MÉDICA',          sufijo: 'Orden_Medica' },
+      { key: 'laboratorio', tituloDoc: 'ORDEN DE LABORATORIO', tituloTabla: 'ORDEN DE LABORATORIO', sufijo: 'Orden_Laboratorio' },
+      { key: 'otras',       tituloDoc: 'ORDEN MÉDICA',         tituloTabla: 'ORDEN MÉDICA',         sufijo: 'Orden_Medica' },
     ];
 
     for (const tipo of tiposOrden) {
@@ -204,6 +203,39 @@ async function enviarHistoria({
           const pdfCifradoOrd = await PdfEncrypt.cifrarPdf(pdfBufferOrd, paciente.numero_documento);
           adjuntos.push({ filename: `${tipo.sufijo}_${nombreBase}.pdf`, content: pdfCifradoOrd });
         }
+      }
+    }
+
+    // 2b. Orden de Imagenología — formato completo estilo Panacea
+    // Llama QRY_IMPRESION_ORDENES_FORMATOS OPERACION=0 (datos maestros: Orden N°, Tipo usuario,
+    // Vía ingreso, Vigencia, etc.) y OPERACION=1 (filas de procedimientos con Área corporal,
+    // Lateralidad, Estado, Prioridad, Tipo uso, Comentario).
+    const rsImagenologia = clasificados.imagenologia || [];
+    if (rsImagenologia.length) {
+      let datosOrdenImg = null;
+      let op1RowsImg    = [];
+      try {
+        const allImgRows = rsImagenologia.flatMap(rs => rs || []);
+        const primeraFilaImg = allImgRows[0];
+        if (primeraFilaImg && primeraFilaImg.ID_ORDEN != null) {
+          const idOrdenI         = Number(primeraFilaImg.ID_ORDEN);
+          const idGrupoPlantilla = Number(primeraFilaImg.ID_GRUPO_PLANTILLA || 12);
+          const idTipoPlantilla  = Number(primeraFilaImg.ID_TIPO_PLANTILLA  || 39);
+          const [op0Rows, op1] = await Promise.all([
+            HistoriaSP.getOrdenesFormatos(idOrdenI, idGrupoPlantilla, idTipoPlantilla),
+            HistoriaSP.getOrdenesFormatosOp1(idOrdenI),
+          ]);
+          datosOrdenImg = op0Rows[0] || null;
+          op1RowsImg    = op1 || [];
+        }
+      } catch (errI) {
+        console.warn('[Imagenologia] No se pudo obtener datos de orden:', errI.message);
+      }
+      const resultado = renderHtmlOrdenImagenologia(payload, rsImagenologia, datosOrdenImg, op1RowsImg);
+      if (resultado) {
+        const pdfBufferImg  = await PdfService.generarPdfBuffer(resultado);
+        const pdfCifradoImg = await PdfEncrypt.cifrarPdf(pdfBufferImg, paciente.numero_documento);
+        adjuntos.push({ filename: `Orden_Imagenologia_${nombreBase}.pdf`, content: pdfCifradoImg });
       }
     }
 
