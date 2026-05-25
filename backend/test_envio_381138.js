@@ -19,7 +19,7 @@ require('dotenv').config();
 // ══════════════════════════════════════════════════════
 //  ✏️  CONFIGURA AQUÍ ANTES DE EJECUTAR
 // ══════════════════════════════════════════════════════
-const ID_ATENCION        = 57552;
+const ID_ATENCION        = 198865;
 const NUMERO_DOCUMENTO   = '5369102';   // número de documento del paciente
 const TIPO_DOCUMENTO     = 'AUTO';   // CC, TI, CE, etc. o 'AUTO'
 const CORREO_DESTINO_PRUEBA = null;  // ← pon tu correo aquí: 'tucorreo@gmail.com'

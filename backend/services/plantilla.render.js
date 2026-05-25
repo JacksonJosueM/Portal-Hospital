@@ -1642,7 +1642,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
       // Líneas multi-campo igual que Panacea
       const causaLine = [
         datos.CAUSA_EXTERNA    ? `Causa externa: ${esc(cleanStr(datos.CAUSA_EXTERNA))}` : '',
-        'Ocupaci\u00f3n:',
+        datos.OCUPACION        ? `Ocupaci\u00f3n: ${esc(cleanStr(datos.OCUPACION))}` : 'Ocupaci\u00f3n:',
         datos.TIPO_VINCULACION ? `Tipo vinculaci\u00f3n: ${esc(cleanStr(datos.TIPO_VINCULACION))}` : '',
       ].filter(Boolean).join(' &nbsp; ');
 
@@ -1677,7 +1677,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
           </tr>
           <tr>
             <td style="${tdS}">${lb('G\u00e9nero', generoTexto)}</td>
-            <td style="${tdS}"><b>Ocupaci\u00f3n:</b></td>
+            <td style="${tdS}">${lb('Ocupaci\u00f3n', datos.OCUPACION)}</td>
           </tr>
           <tr>
             <td style="${tdS}">${lb('Direcci\u00f3n', datos.DIRECCION_PACIENTE)}</td>
