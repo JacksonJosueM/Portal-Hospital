@@ -1012,21 +1012,6 @@ function numeroALetras(num) {
 function getFormaFarmaceutica(nombreMedicamento) {
   const n = String(nombreMedicamento || '').toUpperCase();
   if (n.includes('DOXICICLINA')) return 'Tableta dispersable';
-  if (n.includes('AMPOLLA')) return 'Ampolla';
-  if (n.includes('TABLETA') || n.includes('TAB')) return 'Tableta';
-  if (n.includes('CAPSULA') || n.includes('CAP')) return 'Cápsula';
-  if (n.includes('CREMA')) return 'Crema';
-  if (n.includes('JARABE')) return 'Jarabe';
-  if (n.includes('SUSPENSION') || n.includes('SUSP')) return 'Suspensión';
-  if (n.includes('SOBRE')) return 'Sobre';
-  if (n.includes('GOTA')) return 'Gota';
-  if (n.includes('UNGÜENTO') || n.includes('UNGUENTO')) return 'Ungüento';
-  const palabras = n.split(/\s+/).filter(Boolean);
-  if (palabras.length) {
-    const ultima = palabras[palabras.length - 1].toLowerCase();
-    return ultima.charAt(0).toUpperCase() + ultima.slice(1);
-  }
-  return 'Unidad';
 }
 
 function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows = []) {
@@ -1050,18 +1035,20 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
   html += `
     <table class="orden-table">
       <colgroup>
-        <col style="width: 4%">
-        <col style="width: 50%">
-        <col style="width: 10%">
-        <col style="width: 10%">
-        <col style="width: 16%">
-        <col style="width: 10%">
+        <col style="width: 4%"/>
+        <col style="width: 45%"/>
+        <col style="width: 8%"/>
+        <col style="width: 12%"/>
+        <col style="width: 8%"/>
+        <col style="width: 13%"/>
+        <col style="width: 10%"/>
       </colgroup>
       <thead>
         <tr>
           <th style="text-align:center;">#</th>
           <th>Medicamento</th>
           <th style="text-align:center;">Cantidad</th>
+          <th style="text-align:center;">Dosis</th>
           <th style="text-align:center;">Días<br>Tratamiento</th>
           <th>Vía administración</th>
           <th style="text-align:center;">Estado</th>
@@ -1117,6 +1104,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
         <td style="text-align:center;">${idx++}</td>
         <td>${escapeHtml(medicamento)}</td>
         <td style="text-align:center;">${escapeHtml(String(cantTotalVal))}</td>
+        <td style="text-align:center;">${escapeHtml(dosisText)}</td>
         <td style="text-align:center;">${escapeHtml(String(dias || ''))}</td>
         <td>${viaAdmin}</td>
         <td style="text-align:center;">Autorizado</td>

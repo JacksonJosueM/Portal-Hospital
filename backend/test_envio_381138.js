@@ -19,12 +19,12 @@ require('dotenv').config();
 // ══════════════════════════════════════════════════════
 //  ✏️  CONFIGURA AQUÍ ANTES DE EJECUTAR
 // ══════════════════════════════════════════════════════
-const ID_ATENCION        = 198865;
-const NUMERO_DOCUMENTO   = '5369102';   // número de documento del paciente
-const TIPO_DOCUMENTO     = 'AUTO';   // CC, TI, CE, etc. o 'AUTO'
+const ID_ATENCION = 57552;
+const NUMERO_DOCUMENTO = '5369102';   // número de documento del paciente
+const TIPO_DOCUMENTO = 'AUTO';   // CC, TI, CE, etc. o 'AUTO'
 const CORREO_DESTINO_PRUEBA = null;  // ← pon tu correo aquí: 'tucorreo@gmail.com'
-                                     //   null = usa el correo que tiene el paciente en la BD
-const FORZAR_REENVIO     = true;     // true = envía aunque ya haya sido enviado antes
+//   null = usa el correo que tiene el paciente en la BD
+const FORZAR_REENVIO = true;     // true = envía aunque ya haya sido enviado antes
 // ══════════════════════════════════════════════════════
 
 const { portalPool, panaceaPool, sql } = require('./config/db');
@@ -32,8 +32,8 @@ const HistoriaPrintService = require('./services/historia.print.service');
 const HistoriaSP = require('./services/panacea/historiaSP');
 const pLimit = require('p-limit');
 const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades } = require('./services/plantilla.render');
-const PdfService  = require('./services/pdf.service');
-const PdfEncrypt  = require('./services/pdf.encrypt');
+const PdfService = require('./services/pdf.service');
+const PdfEncrypt = require('./services/pdf.encrypt');
 const MailService = require('./services/mail.service');
 
 function nombreParaArchivo(nombreCompleto) {
@@ -121,7 +121,7 @@ async function main() {
   console.log('\n📄 Generando PDFs...');
   const adjuntos = [];
   const nombreArchivo = nombreParaArchivo(paciente.NOMBRE_COMPLETO);
-  const docPaciente   = paciente.numero_documento;
+  const docPaciente = paciente.numero_documento;
 
   try {
     // 1️⃣ Historia Clínica (siempre)
@@ -134,14 +134,14 @@ async function main() {
 
     // 2️⃣ + 3️⃣  Clasificar TODAS las órdenes (ordenes + formulacion) → un PDF por tipo
     const clasificados = clasificarTodasLasOrdenes(
-      payload.clinico.ordenes    || [],
+      payload.clinico.ordenes || [],
       payload.clinico.formulacion || []
     );
 
     const tiposOrden = [
-      { key: 'laboratorio',  tituloDoc: 'ORDEN DE LABORATORIO',  tituloTabla: 'ORDEN DE LABORATORIO',  sufijo: 'Orden_Laboratorio' },
+      { key: 'laboratorio', tituloDoc: 'ORDEN DE LABORATORIO', tituloTabla: 'ORDEN DE LABORATORIO', sufijo: 'Orden_Laboratorio' },
       { key: 'imagenologia', tituloDoc: 'ORDEN DE IMAGENOLOGÍA', tituloTabla: 'ORDEN DE IMAGENOLOGÍA', sufijo: 'Orden_Imagenologia' },
-      { key: 'otras',        tituloDoc: 'ORDEN MÉDICA',          tituloTabla: 'ORDEN MÉDICA',          sufijo: 'Orden_Medica' },
+      { key: 'otras', tituloDoc: 'ORDEN MÉDICA', tituloTabla: 'ORDEN MÉDICA', sufijo: 'Orden_Medica' },
     ];
 
     for (const tipo of tiposOrden) {
