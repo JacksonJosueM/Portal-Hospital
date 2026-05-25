@@ -1005,13 +1005,68 @@ function renderOrdenesPanacea(recordsets) {
 }
 
 function numeroALetras(num) {
-  const map = { 1: 'uno', 2: 'dos', 3: 'tres', 4: 'cuatro', 5: 'cinco', 6: 'seis', 7: 'siete', 8: 'ocho', 9: 'nueve', 10: 'diez', 11: 'once', 12: 'doce', 15: 'quince', 30: 'treinta', 60: 'sesenta', 100: 'cien' };
-  return map[num] || String(num);
+  if (num === null || isNaN(num)) return '';
+  let n = Math.floor(Number(num));
+  if (n === 0) return 'cero';
+
+  const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+  const decenas = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+  const especiales = { 11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 21: 'veintiuno', 22: 'veintidós', 23: 'veintitrés', 24: 'veinticuatro', 25: 'veinticinco', 26: 'veintiséis', 27: 'veintisiete', 28: 'veintiocho', 29: 'veintinueve' };
+  const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+  function decen(x) {
+    if (x < 10) return unidades[x];
+    if (especiales[x]) return especiales[x];
+    let u = x % 10;
+    let d = Math.floor(x / 10);
+    if (u === 0) return decenas[d];
+    return decenas[d] + ' y ' + unidades[u];
+  }
+
+  function centen(x) {
+    if (x === 100) return 'cien';
+    let d = x % 100;
+    let c = Math.floor(x / 100);
+    if (d === 0) return centenas[c];
+    return centenas[c] + ' ' + decen(d);
+  }
+
+  function mil(x) {
+    let c = x % 1000;
+    let m = Math.floor(x / 1000);
+    let strC = c > 0 ? centen(c) : '';
+    if (m === 0) return strC;
+    if (m === 1) return 'mil ' + strC;
+    return centen(m) + ' mil ' + strC;
+  }
+
+  return mil(n).trim();
 }
 
 function getFormaFarmaceutica(nombreMedicamento) {
   const n = String(nombreMedicamento || '').toUpperCase();
-  if (n.includes('DOXICICLINA')) return 'Tableta dispersable';
+  if (n.includes('AMPOLLA')) return 'Ampolla';
+  if (n.includes('TABLETA DISPERSABLE')) return 'Tableta dispersable';
+  if (n.includes('TABLETA') || n.includes('TAB')) return 'Tableta';
+  if (n.includes('CAPSULA') || n.includes('CAP')) return 'Cápsula';
+  if (n.includes('JARABE')) return 'Jarabe';
+  if (n.includes('SUSPENSION')) return 'Suspensión';
+  if (n.includes('GOTAS')) return 'Gotas';
+  if (n.includes('CREMA')) return 'Crema';
+  if (n.includes('UNGUENTO')) return 'Ungüento';
+  if (n.includes('LOCION')) return 'Loción';
+  if (n.includes('GEL')) return 'Gel';
+  if (n.includes('SOLUCION')) return 'Solución';
+  if (n.includes('POLVO')) return 'Polvo';
+  if (n.includes('AEROSOL') || n.includes('INHALADOR')) return 'Inhalador';
+  if (n.includes('SUPOSITORIO')) return 'Supositorio';
+  if (n.includes('INYECCION') || n.includes('INYECTABLE')) return 'Inyectable';
+  if (n.includes('SOBRE')) return 'Sobre';
+  if (n.includes('JERINGA')) return 'Jeringa';
+  if (n.includes('TUBO')) return 'Tubo';
+  if (n.includes('VIAL')) return 'Vial';
+  if (n.includes('PARCHE')) return 'Parche';
+  return '';
 }
 
 function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows = []) {
@@ -1036,21 +1091,19 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     <table class="orden-table">
       <colgroup>
         <col style="width: 4%"/>
-        <col style="width: 45%"/>
-        <col style="width: 8%"/>
+        <col style="width: 40%"/>
+        <col style="width: 12%"/>
+        <col style="width: 24%"/>
         <col style="width: 12%"/>
         <col style="width: 8%"/>
-        <col style="width: 13%"/>
-        <col style="width: 10%"/>
       </colgroup>
       <thead>
         <tr>
           <th style="text-align:center;">#</th>
           <th>Medicamento</th>
-          <th style="text-align:center;">Cantidad</th>
+          <th style="text-align:center;">Vía<br>administración</th>
           <th style="text-align:center;">Dosis</th>
-          <th style="text-align:center;">Días<br>Tratamiento</th>
-          <th>Vía administración</th>
+          <th style="text-align:center;">Cantidad total</th>
           <th style="text-align:center;">Estado</th>
         </tr>
       </thead>
@@ -1093,20 +1146,21 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     if (cantTotalVal == null) {
       cantTotalVal = '1';
     } else {
-      cantTotalVal = Number(cantTotalVal) > 100 ? Number(cantTotalVal) / 100 : Number(cantTotalVal);
+      cantTotalVal = Number(cantTotalVal);
     }
-    const forma = getFormaFarmaceutica(desc);
+    const forma = getFormaFarmaceutica(desc) || (op2Row.FORMA_FARMACEUTICA ? String(op2Row.FORMA_FARMACEUTICA) : '');
     const cantLetras = numeroALetras(cantTotalVal);
-    const cantidadTotalText = `${cantTotalVal} (${cantLetras}) ${forma}`;
+    let cantidadTotalText = `${cantTotalVal} (${cantLetras}) ${forma}`.trim();
+    // Reemplazar espacios dobles si forma está vacío
+    cantidadTotalText = cantidadTotalText.replace(/\s+/g, ' ');
 
     html += `
       <tr>
         <td style="text-align:center;">${idx++}</td>
         <td>${escapeHtml(medicamento)}</td>
-        <td style="text-align:center;">${escapeHtml(String(cantTotalVal))}</td>
-        <td style="text-align:center;">${escapeHtml(dosisText)}</td>
-        <td style="text-align:center;">${escapeHtml(String(dias || ''))}</td>
-        <td>${viaAdmin}</td>
+        <td style="text-align:center;">${viaAdmin}</td>
+        <td>${escapeHtml(dosisText)}</td>
+        <td style="text-align:center;">${escapeHtml(cantidadTotalText)}</td>
         <td style="text-align:center;">Autorizado</td>
       </tr>
     `;
