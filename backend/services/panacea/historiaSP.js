@@ -214,6 +214,56 @@ async function getOrdenesImpresion(idAtencion) {
   return normalizeRecordsets(result.recordsets);
 }
 
+async function getOrdenesFecha(idOrden) {
+  const p = await pool();
+  const r = applyAudit(p.request(), 4)
+    .input('ID', sql.BigInt, null)
+    .input('ID_ORDEN', sql.BigInt, idOrden);
+  const result = await r.execute('Historia.STM_ORDENES_FECHA');
+  return normalizeRecordset(result.recordset);
+}
+
+async function getOrdenesImpresionFormatos(idItem, operacion = 1) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID_ITEM', sql.BigInt, idItem)
+    .input('OPERACION', sql.SmallInt, operacion)
+    .execute('Historia.QRY_IMPRESION_ORDENES_FORMATOS');
+  return normalizeRecordset(result.recordset);
+}
+
+// Datos estructurados completos de un formato de orden (OPERACION=0).
+// Devuelve el registro maestro con FechaInicio, FechaTerminacion, DiasIncapacidad,
+// Prorroga, CausaExterna, TipoVinculacion, TipoUsuario, Item, NumeroOrden, etc.
+async function getOrdenesFormatos(idItem, idGrupoPlantilla, idTipoPlantilla) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID_ITEM', sql.BigInt, idItem)
+    .input('ID_GRUPO_PLANTILLA', sql.SmallInt, idGrupoPlantilla)
+    .input('ID_TIPO_PLANTILLA', sql.SmallInt, idTipoPlantilla)
+    .input('OPERACION', sql.SmallInt, 0)
+    .execute('Historia.QRY_IMPRESION_ORDENES_FORMATOS');
+  return normalizeRecordset(result.recordset);
+}
+
+async function getOrdenesLista(idOrden) {
+  const p = await pool();
+  const r = applyAudit(p.request(), 4)
+    .input('ID', sql.BigInt, null)
+    .input('ID_ORDEN', sql.BigInt, idOrden);
+  const result = await r.execute('Historia.STM_ORDENES_LISTA');
+  return normalizeRecordset(result.recordset);
+}
+
+async function getOrdenesTexto(idOrden) {
+  const p = await pool();
+  const r = applyAudit(p.request(), 4)
+    .input('ID', sql.BigInt, null)
+    .input('ID_ORDEN', sql.BigInt, idOrden);
+  const result = await r.execute('Historia.STM_ORDENES_TEXTO');
+  return normalizeRecordset(result.recordset);
+}
+
 async function getNotasAtencion(idAtencion) {
   const p = await pool();
   const r = applyAudit(p.request(), 4)
@@ -267,6 +317,11 @@ module.exports = {
   getDatosTabla,
   getCalculosRiesgo,
   getOrdenesImpresion,
+  getOrdenesFecha,
+  getOrdenesImpresionFormatos,
+  getOrdenesFormatos,
+  getOrdenesLista,
+  getOrdenesTexto,
   getNotasAtencion,
   getGraficasImagen,
   getFormulacionMedica,

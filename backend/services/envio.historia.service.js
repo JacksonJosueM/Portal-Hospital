@@ -20,6 +20,8 @@ const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtm
 const PdfService = require('./pdf.service');
 const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
+const HistoriaSP = require('./panacea/historiaSP');
+const pLimit = require('p-limit');
 
 /**
  * Registra el resultado de un envío en la tabla portal.envios_historia
@@ -208,7 +210,51 @@ async function enviarHistoria({
     // 3. Orden de Incapacidad — bloque de texto formato Panacea
     const rsIncapacidades = clasificados.incapacidades || [];
     if (rsIncapacidades.length) {
-      const resultado = renderHtmlIncapacidades(payload, rsIncapacidades);
+      // Recopilar IDs únicos con su tipo de orden para llamar los SPs correctos
+      const ordenesInfo = new Map(); // idOrden -> { idTipoOrden }
+      const idIps = (payload.atencion && payload.atencion.ID_IPS) || 21;
+      for (const rs of rsIncapacidades) {
+        for (const row of rs || []) {
+          if (row.ID_ORDEN != null) {
+            const idOrden = Number(row.ID_ORDEN);
+            if (!ordenesInfo.has(idOrden)) {
+              ordenesInfo.set(idOrden, { idTipoOrden: Number(row.ID_TIPO_ORDEN || 58) });
+            }
+          }
+        }
+      }
+
+      const ordenesDatosPorId = new Map();     // QRY_IMPRESION_ORDENES_FORMATOS op=0
+      const ordenesFechasPorId = new Map();    // STM_ORDENES_FECHA
+      const ordenesListaPorId = new Map();     // STM_ORDENES_LISTA
+      const ordenesTextoPorId = new Map();     // STM_ORDENES_TEXTO
+      const ordenesEstructuraPorId = new Map(); // QRY_IMPRESION_ORDENES_FORMATOS op=1
+
+      if (ordenesInfo.size > 0) {
+        const limitInc = pLimit(3);
+        await Promise.all([...ordenesInfo.entries()].map(([idOrden, info]) => limitInc(async () => {
+          const [datos, fechas, lista, texto, estructura] = await Promise.all([
+            HistoriaSP.getOrdenesFormatos(idOrden, idIps, info.idTipoOrden),
+            HistoriaSP.getOrdenesFecha(idOrden),
+            HistoriaSP.getOrdenesLista(idOrden),
+            HistoriaSP.getOrdenesTexto(idOrden),
+            HistoriaSP.getOrdenesImpresionFormatos(idOrden, 1),
+          ]);
+          ordenesDatosPorId.set(idOrden, datos[0] || null);
+          ordenesFechasPorId.set(idOrden, fechas);
+          ordenesListaPorId.set(idOrden, lista);
+          ordenesTextoPorId.set(idOrden, texto);
+          ordenesEstructuraPorId.set(idOrden, estructura);
+        })));
+      }
+
+      const resultado = renderHtmlIncapacidades(payload, rsIncapacidades, {
+        ordenesDatosPorId,
+        ordenesFechasPorId,
+        ordenesListaPorId,
+        ordenesTextoPorId,
+        ordenesEstructuraPorId,
+      });
       if (resultado) {
         const pdfBufferInc = await PdfService.generarPdfBuffer(resultado);
         const pdfCifradoInc = await PdfEncrypt.cifrarPdf(pdfBufferInc, paciente.numero_documento);

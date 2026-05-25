@@ -1544,51 +1544,190 @@ ${html}
  * Genera el HTML completo para un PDF de Orden de Incapacidad.
  * Formato Panacea: bloque de texto "ORDEN DE INCAPACIDAD:" + descripción — sin tabla.
  */
-function renderHtmlIncapacidades(payload, recordsets) {
+function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
   const estilos = buildEstilos(payload.parametros);
   const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const esc = escapeHtml;
 
-  let contenido = '';
+  const formatFechaHora = (v) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d)) return formatSoloFecha(v);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  };
+
+  const GENERO_MAP = { 1: 'Masculino', 2: 'Femenino', 3: 'Indeterminado' };
+  const VIA_INGRESO_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
+
+  // GUIDs fijos del formato de incapacidad (estructura op=1)
+  const GUID_AMBITO    = '2E70F5DD-3E27-4738-A7C4-208A5B098B43';
+  const GUID_ORIGEN    = '94F03BF9-70CA-4F94-8895-8F567F0781C1';
+  const GUID_MODALIDAD = 'AE0B1652-DA41-4886-B4C6-E6E86561A896';
+
+  let blocksHtml = '';
+
   for (const rs of recordsets || []) {
     if (!rs || !rs.length) continue;
     for (const f of rs) {
-      // Construir descripción igual que el fallback de renderOrdenesPanacea
-      let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
-      if (!desc && f.NOMBRE_PLANTILLA) {
-        const partes = [];
-        if (f.FECHA_EXPEDICION) {
-          const d = new Date(f.FECHA_EXPEDICION);
-          if (!isNaN(d)) {
-            const pad = (n) => String(n).padStart(2, '0');
-            partes.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
-          }
-        }
-        partes.push(cleanStr(f.NOMBRE_PLANTILLA));
-        if (f.NOMBRE_ESPECIALIDAD)        partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
-        if (f.NOMBRE_COMPLETO_PRESTADOR)  partes.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
-        desc = partes.join(' - ');
-      }
-      if (!desc) continue;
+      const idOrden = f.ID_ORDEN != null ? Number(f.ID_ORDEN) : null;
 
-      // Formato Panacea: "ORDEN DE INCAPACIDAD:" en negrita + descripción debajo
-      contenido += `
-        <div style="margin-top: 16px; font-size: 10px; line-height: 1.5;">
-          <strong>ORDEN DE INCAPACIDAD:</strong>
-          <div style="margin-top: 4px; margin-left: 8px;">${escapeHtml(desc)}</div>
+      const datos = idOrden && datosDinamicos.ordenesDatosPorId
+        ? datosDinamicos.ordenesDatosPorId.get(idOrden)
+        : null;
+
+      // #region agent log
+      fetch('http://127.0.0.1:7484/ingest/1b468bd2-7ffd-4415-8c1e-811e7c186967',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6767d5'},body:JSON.stringify({sessionId:'6767d5',location:'plantilla.render.js:renderHtmlIncapacidades',message:'orden procesada',data:{idOrden,hasDatos:!!datos,datosKeys:datos?Object.keys(datos).slice(0,10):null,hasDatosDinamicos:Object.keys(datosDinamicos)},timestamp:Date.now(),hypothesisId:'H1-H5'})}).catch(()=>{});
+      // #endregion
+
+      if (!datos) {
+        // ─── Fallback: solo línea descriptiva ──────────────────────────────────
+        let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
+        if (!desc && f.NOMBRE_PLANTILLA) {
+          const partes = [];
+          if (f.FECHA_EXPEDICION) {
+            const d = new Date(f.FECHA_EXPEDICION);
+            if (!isNaN(d)) {
+              const pad = n => String(n).padStart(2, '0');
+              partes.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+            }
+          }
+          partes.push(cleanStr(f.NOMBRE_PLANTILLA));
+          if (f.NOMBRE_ESPECIALIDAD)       partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
+          if (f.NOMBRE_COMPLETO_PRESTADOR) partes.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
+          desc = partes.join(' - ');
+        }
+        if (!desc) continue;
+        blocksHtml += `<div style="margin-top:12px;font-size:10px;"><strong>ORDEN DE INCAPACIDAD:</strong> ${esc(desc)}</div>`;
+        continue;
+      }
+
+      // ─── Render con datos completos de OPERACION=0 ─────────────────────────
+      const listaRows = idOrden && datosDinamicos.ordenesListaPorId
+        ? (datosDinamicos.ordenesListaPorId.get(idOrden) || [])
+        : [];
+      const valorListaPorGuid = new Map(listaRows.map(r => [r.ID_ESTRUCTURA_PLANTILLA, r.VALOR_LISTA]));
+
+      const textoRows = idOrden && datosDinamicos.ordenesTextoPorId
+        ? (datosDinamicos.ordenesTextoPorId.get(idOrden) || [])
+        : [];
+      const valorTextoPorGuid = new Map(textoRows.map(r => [r.ID_ESTRUCTURA_PLANTILLA, r.VALOR_TEXTO]));
+
+      const ambito   = cleanStr(valorTextoPorGuid.get(GUID_AMBITO)    || '');
+      const origenInc = cleanStr(valorListaPorGuid.get(GUID_ORIGEN)   || '');
+      const modalidad = cleanStr(valorListaPorGuid.get(GUID_MODALIDAD) || '');
+
+      // Título de tipo de orden en título case
+      const tipoOrdenNombre = cleanStr(f.NOMBRE_PLANTILLA || 'INCAPACIDADES O LICENCIAS')
+        .toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+      // Género y vía de ingreso
+      const generoTexto = GENERO_MAP[datos.GENERO_PACIENTE] || '';
+      const viaIngreso  = VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO] != null
+        ? VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO]
+        : '';
+
+      // Vigencia
+      const vi = formatSoloFecha(datos.FECHA_INICIO);
+      const vf = formatSoloFecha(datos.FECHA_TERMINACION);
+      const vigencia = vi && vf ? `${vi} - ${vf}` : (vi || vf || '');
+
+      // Diagnósticos compactos desde payload general
+      const dxList = (payload.clinico && payload.clinico.diagnosticos) || [];
+      const dxPpal = dxList.find(d => {
+        const t = String(d.DESCRIPCION_TIPO_DX_PPAL || d.TIPO_DX || '').toUpperCase();
+        return d.ES_PRINCIPAL === 1 || d.PRINCIPAL === 1 || t.includes('INGRESO') || t.includes('PRINCIPAL');
+      }) || dxList[0];
+
+      // Líneas multi-campo igual que Panacea
+      const causaLine = [
+        datos.CAUSA_EXTERNA    ? `Causa externa: ${esc(cleanStr(datos.CAUSA_EXTERNA))}` : '',
+        'Ocupaci\u00f3n:',
+        datos.TIPO_VINCULACION ? `Tipo vinculaci\u00f3n: ${esc(cleanStr(datos.TIPO_VINCULACION))}` : '',
+      ].filter(Boolean).join(' &nbsp; ');
+
+      const diasLine = [
+        datos.DIAS_INCAPACIDAD != null ? `D\u00edas de incapacidad: ${datos.DIAS_INCAPACIDAD}` : '',
+        `Pr\u00f3rroga: ${datos.PRORROGA === true || datos.PRORROGA === 1 ? 'S\u00ed' : 'No'}`,
+      ].filter(Boolean).join(' &nbsp; ');
+
+      const ambitoLine = [
+        ambito    ? `\u00c1mbito de atenci\u00f3n: ${esc(ambito)}`    : '',
+        origenInc ? `Origen Incapacidad: ${esc(origenInc)}`           : '',
+        modalidad ? `Modalidad Tec. Salud: ${esc(modalidad)}`         : '',
+      ].filter(Boolean).join(' &nbsp; ');
+
+      // Tabla de identificación del paciente específica para incapacidad
+      // line-height:1.4 anula el line-height:0.1 del body (parámetros Panacea)
+      const tdS = 'border:1px solid #555; padding:3px 6px; vertical-align:top; font-size:9.5px; line-height:1.4; width:50%; word-wrap:break-word; word-break:break-word;';
+      const lb  = (label, val) => `<b>${label}:</b> ${esc(cleanStr(String(val ?? '')))}`;
+      const tablaPaciente = `
+        <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
+          <tr>
+            <td style="${tdS}">${lb('Apellidos', datos.APELLIDOS_PACIENTE)}</td>
+            <td style="${tdS}">${lb('Nombres', datos.NOMBRES_PACIENTE)}</td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('Tipo Identificaci\u00f3n', datos.TIPO_IDENTIFICACION_PACIENTE)}</td>
+            <td style="${tdS}">${lb('N\u00famero documento', datos.NUMERO_IDENTIFICACION_PACIENTE)}</td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('Fecha de Nacimiento', formatSoloFecha(datos.FECHA_NACIMIENTO))}</td>
+            <td style="${tdS}">${lb('Edad', datos.UNIDAD_MEDIDA_EDAD)}</td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('G\u00e9nero', generoTexto)}</td>
+            <td style="${tdS}"><b>Ocupaci\u00f3n:</b></td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('Direcci\u00f3n', datos.DIRECCION_PACIENTE)}</td>
+            <td style="${tdS}">${lb('Tel\u00e9fono', datos.TELEFONO_PACIENTE)}</td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('Nombre del Cliente', datos.NOMBRE_TERCERO)}</td>
+            <td style="${tdS}">${lb('Convenio', datos.CONVENIO)}</td>
+          </tr>
+          <tr>
+            <td style="${tdS}">${lb('Fecha registro', formatFechaHora(datos.FECHA_EXPEDICION))}</td>
+            <td style="${tdS}">${lb('Fecha atenci\u00f3n', formatFechaHora(datos.FECHA_INICIO))}</td>
+          </tr>
+        </table>`;
+
+      blocksHtml += `
+        <div style="font-size:9.5px; margin-top:6px;">
+          <b>Orden N\u00b0: ${esc(datos.NUMERO_ORDEN || '')}</b>
+          &nbsp; Orden ${esc(tipoOrdenNombre)}
+          &nbsp; C\u00f3digo: ${esc(datos.CODIGO_PLANTILLA || '')}
+          &nbsp; Fecha y hora: ${esc(formatFechaHora(datos.FECHA_EXPEDICION))}
+        </div>
+        ${tablaPaciente}
+        <div style="font-size:9.5px; margin-top:8px; line-height:1.65;">
+          ${vigencia    ? `<div>Vigencia: ${esc(vigencia)}</div>` : ''}
+          ${datos.TIPO_USUARIO ? `<div>Tipo de usuario: ${esc(cleanStr(datos.TIPO_USUARIO))}</div>` : ''}
+          ${viaIngreso  ? `<div>V\u00eda de ingreso: ${esc(viaIngreso)}</div>` : ''}
+          ${dxList.length ? `
+            <div><b>Diagn\u00f3sticos</b></div>
+            ${dxPpal ? `<div>Principal Ingreso: ${esc(dxPpal.CODIGO_CIE || '')} &nbsp; Tipo principal: ${esc(dxPpal.DESCRIPCION_TIPO_DX_PPAL || '')},</div>` : ''}
+          ` : ''}
+          ${causaLine   ? `<div>${causaLine}</div>` : ''}
+          ${diasLine    ? `<div>${diasLine}</div>` : ''}
+          ${datos.ITEM  ? `<div>Diagn\u00f3stico: ${esc(cleanStr(datos.ITEM))}</div>` : ''}
+          ${ambitoLine  ? `<div>${ambitoLine}</div>` : ''}
+          <div>Observaciones: ${esc(cleanStr(datos.OBSERVACIONES || ''))}</div>
         </div>`;
     }
   }
 
-  if (!contenido) return null;
+  if (!blocksHtml) return null;
 
+  // Wrapper con padding-right para que la tabla no llegue al borde del papel
   const html = `
-    ${renderEncabezado(payload)}
-    <h1 class="seccion" style="text-align:center">ORDEN DE INCAPACIDAD</h1>
-    ${renderIdentificacionPaciente(payload)}
-    ${renderDiagnosticos(payload)}
-    ${contenido}
-    ${renderFirma(payload)}
-    <div class="footer">Atenci&oacute;n: ${escapeHtml(payload.atencion.ID || '')}</div>
+    <div style="padding: 0 12mm 0 6mm;">
+      ${renderEncabezado(payload)}
+      ${blocksHtml}
+      ${renderFirma(payload)}
+      <div class="footer">Atenci&oacute;n: ${escapeHtml(payload.atencion.ID || '')}</div>
+    </div>
   `;
 
   const body = `<!DOCTYPE html>
