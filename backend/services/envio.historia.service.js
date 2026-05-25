@@ -265,7 +265,25 @@ async function enviarHistoria({
     // 4. Fórmula Médica
     const rsMedicamentos = clasificados.medicamentos || [];
     if (rsMedicamentos.length) {
-      const resultado = renderHtmlFormula(payload, rsMedicamentos);
+      // Obtener datos completos de la orden vía QRY_IMPRESION_ORDENES_FORMATOS OPERACION=2
+      // (confirmado por traza SQL: Panacea llama este SP con OPERACION=2 al imprimir fórmulas)
+      // Devuelve: TIPO_USUARIO, CATEGORIA_CONVENIO, ID_ORIGEN_VIA_INGRESO, ID_AMBITO,
+      //           TIPO_USO, FECHA_INICIO, FECHA_TERMINACION, DISTANCIA (dosis por med), etc.
+      let datosOrdenFormula = null;
+      let op2RowsFormula    = [];
+      try {
+        const allMedRows = rsMedicamentos.flatMap(rs => rs || []);
+        const primeraFilaFormula = allMedRows[0];
+        if (primeraFilaFormula && primeraFilaFormula.ID_ORDEN != null) {
+          const idOrdenF = Number(primeraFilaFormula.ID_ORDEN);
+          op2RowsFormula = await HistoriaSP.getOrdenesFormatosOp2(idOrdenF);
+          datosOrdenFormula = op2RowsFormula[0] || null;
+        }
+      } catch (errF) {
+        console.warn('[Formula] No se pudo obtener Op2 datos:', errF.message);
+      }
+
+      const resultado = renderHtmlFormula(payload, rsMedicamentos, datosOrdenFormula, op2RowsFormula);
       if (resultado) {
         const pdfBufferForm = await PdfService.generarPdfBuffer(resultado);
         const pdfCifradoForm = await PdfEncrypt.cifrarPdf(pdfBufferForm, paciente.numero_documento);

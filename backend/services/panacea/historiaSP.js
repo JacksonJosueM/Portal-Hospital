@@ -297,6 +297,103 @@ async function getFormulacionMedica(idAtencion) {
   return normalizeRecordsets(result.recordsets);
 }
 
+/**
+ * Encabezado de la orden de formulación médica (OPERACION=0).
+ * Devuelve datos del encuentro: TIPO_USUARIO, VIA_INGRESO, AMBITO, TIPO_USO, VIGENCIA, etc.
+ */
+async function getFormulacionMedicaHeader(idAtencion) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID_ATENCION', sql.BigInt, idAtencion)
+    .input('OPERACION', sql.SmallInt, 0)
+    .execute('Historia.QRY_IMPRIME_FORMULACION_MEDICA');
+  return normalizeRecordset(result.recordset || (result.recordsets && result.recordsets[0]) || []);
+}
+
+/**
+ * Datos del formato de orden con OPERACION=2 (lo que Panacea llama al imprimir una formula).
+ * Esperamos que devuelva TIPO_USUARIO, VIA_INGRESO, AMBITO, CATEGORIA, TIPO_USO, VIGENCIA.
+ */
+async function getOrdenesFormatosOp2(idItem) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID_ITEM', sql.BigInt, idItem)
+    .input('OPERACION', sql.SmallInt, 2)
+    .execute('Historia.QRY_IMPRESION_ORDENES_FORMATOS');
+  return normalizeRecordset(result.recordset || []);
+}
+
+/**
+ * Datos del formato de orden con OPERACION=1 (segunda llamada de Panacea).
+ */
+async function getOrdenesFormatosOp1(idItem) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID_ITEM', sql.BigInt, idItem)
+    .input('OPERACION', sql.SmallInt, 1)
+    .execute('Historia.QRY_IMPRESION_ORDENES_FORMATOS');
+  return normalizeRecordset(result.recordset || []);
+}
+
+/**
+ * Registro maestro del formato (STM_FORMATOS OPERACION=3) — encabezado de la orden impresa.
+ * Probablemente devuelve NUMERO_FORMATO, ID_CONVENIO, TIPO_ATENCION, OBSERVACIONES, etc.
+ */
+async function getFormatos(idItem) {
+  const p = await pool();
+  const result = await p.request()
+    .input('ID', sql.BigInt, idItem)
+    .input('ID_ATENCION', sql.BigInt, null)
+    .input('ID_ORIGEN', sql.BigInt, null)
+    .input('TIPO_ORIGEN', sql.SmallInt, null)
+    .input('ID_TIPO_FORMATO', sql.SmallInt, null)
+    .input('ID_PACIENTE', sql.BigInt, null)
+    .input('ID_CONVENIO', sql.SmallInt, null)
+    .input('FECHA_EXPEDICION', sql.DateTime, null)
+    .input('CODIGO_CALIDAD', sql.VarChar(50), null)
+    .input('OBSERVACIONES', sql.VarChar(sql.MAX), null)
+    .input('ID_IPS', sql.SmallInt, null)
+    .input('ID_PLANTILLA', sql.SmallInt, null)
+    .input('REGISTRO_XML', sql.VarChar(sql.MAX), null)
+    .input('ID_ADMISION', sql.BigInt, null)
+    .input('NUMERO_FORMATO', sql.BigInt, null)
+    .input('ID_PRESTADOR_REGENTE', sql.BigInt, null)
+    .input('ID_TIPO_ATENCION', sql.SmallInt, null)
+    .input('ID_ATENCION_INICIAL_URGENCIAS', sql.BigInt, null)
+    .input('Usuario', sql.VarChar(50), 'panacea')
+    .input('IP_Origen', sql.VarChar(50), '127.0.0.1')
+    .input('Timestamp', sql.VarBinary(8), null)
+    .input('Operacion', sql.SmallInt, 3)
+    .execute('Historia.STM_FORMATOS');
+  return normalizeFirst(result.recordset || []);
+}
+
+/**
+ * Diagnósticos asociados a una orden específica (STM_ORDENES_DIAGNOSTICOS OPERACION=4).
+ */
+async function getOrdenesDiagnosticos(idOrden) {
+  const p = await pool();
+  const r = applyAudit(p.request(), 4)
+    .input('ID', sql.BigInt, null)
+    .input('ID_ORDEN', sql.BigInt, idOrden)
+    .input('ID_DIAGNOSTICO_CIE', sql.BigInt, null)
+    .input('CODIGO_CIE', sql.VarChar(10), null)
+    .input('DESCRIPCION_CIE', sql.VarChar(200), null)
+    .input('ID_TIPO_DIAGNOSTICO', sql.SmallInt, null)
+    .input('ID_TIPO_DIAGNOSTICO_RIPS', sql.SmallInt, null)
+    .input('ID_NIVEL_RIESGO_DX', sql.SmallInt, null)
+    .input('ID_TIPO_DIAGNOSTICO_PPAL', sql.SmallInt, null)
+    .input('CODIGO_TIPO_DIAGNOSTICO_PPAL', sql.VarChar(10), null)
+    .input('DESCRIPCION_TIPO_DX_PPAL', sql.VarChar(100), null)
+    .input('ID_NIVEL_SEVERIDAD', sql.SmallInt, null)
+    .input('DESCRIPCION_NIVEL_SEVERIDAD', sql.VarChar(100), null)
+    .input('NOSOCOMIAL', sql.Bit, null)
+    .input('CRONICO', sql.Bit, null)
+    .input('EFECTO_SECUNDARIO', sql.Bit, null);
+  const result = await r.execute('Historia.STM_ORDENES_DIAGNOSTICOS');
+  return normalizeRecordset(result.recordset || []);
+}
+
 module.exports = {
   getParametrosImpresion,
   getAtencion,
@@ -325,4 +422,9 @@ module.exports = {
   getNotasAtencion,
   getGraficasImagen,
   getFormulacionMedica,
+  getFormulacionMedicaHeader,
+  getOrdenesFormatosOp2,
+  getOrdenesFormatosOp1,
+  getFormatos,
+  getOrdenesDiagnosticos,
 };
