@@ -663,46 +663,46 @@ function renderIdentificacionPaciente(payload) {
       </colgroup>
       <tbody>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Apellidos:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${apellidos}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombres:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${nombres}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Apellidos:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${apellidos}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombres:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${nombres}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tipo Identificación:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${tipoId}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Número documento:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${numId}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tipo Identificación:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${tipoId}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Número documento:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${numId}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha de Nacimiento:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaNac}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Edad:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${edad}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha de Nacimiento:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaNac}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Edad:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${edad}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Género:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${genero}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Ocupación:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${ocupacion}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Género:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${genero}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Ocupación:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${ocupacion}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Dirección:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${direccion}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Teléfono:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${telefono}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Dirección:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${direccion}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Teléfono:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${telefono}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombre del Cliente:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${cliente}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Convenio:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${convenio}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombre del Cliente:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${cliente}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Convenio:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${convenio}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha registro :</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaReg}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha atención:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaAten}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha registro :</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaReg}</td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha atención:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaAten}</td>
         </tr>
       </tbody>
     </table>
@@ -1182,107 +1182,144 @@ function renderOrdenesYFormulacion(payload) {
 
   const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // ── Agrupar todos los recordsets (sin medicamentos) por NOMBRE_PLANTILLA ──
-  const grupos = new Map(); // clave: NOMBRE_PLANTILLA normalizado → { titulo, filas }
+  // Agrupar recordsets por TIPO DE ORDEN
+  const grupos = new Map();
 
-  for (const rs of ordenesRS) {
-    if (!rs || !rs.length) continue;
-    const tpl = String(rs[0].NOMBRE_PLANTILLA || '').toUpperCase();
-    if (tpl.includes('MEDICAMENTO')) continue; // los medicamentos van en Fórmula Médica
+  const procesarFilas = (rsArray, isMedicamentoDefault) => {
+    for (const rs of rsArray) {
+      if (!rs || !rs.length) continue;
+      for (const fila of rs) {
+        let tpl = cleanStr(fila.NOMBRE_PLANTILLA || '');
+        const tplUpper = tpl.toUpperCase();
+        let tipoGrupo = tplUpper;
 
-    for (const fila of rs) {
-      const key = cleanStr(fila.NOMBRE_PLANTILLA || 'ORDEN').toUpperCase();
-      if (!grupos.has(key)) {
-        grupos.set(key, { titulo: key + ':', filas: [] });
+        if (tplUpper.includes('IMAGENOLOG')) tipoGrupo = 'ORDEN DE IMAGENOLOGÍA:';
+        else if (tplUpper.includes('LABORATORIO') || tplUpper.includes('LAB.')) tipoGrupo = 'ORDEN DE LABORATORIO:';
+        else if (tplUpper.includes('MEDICAMENTO') || tplUpper.includes('FARMACIA') || isMedicamentoDefault) tipoGrupo = 'ORDEN DE MEDICAMENTO:';
+        else if (tplUpper.includes('INCAPACIDAD') || tplUpper.includes('LICENCIA')) tipoGrupo = 'ORDEN DE INCAPACIDAD:';
+        else tipoGrupo = (tpl ? `ORDEN DE ${tplUpper}:` : 'ORDEN:');
+
+        if (!grupos.has(tipoGrupo)) {
+          grupos.set(tipoGrupo, []);
+        }
+        grupos.get(tipoGrupo).push(fila);
       }
-      // Cabecera de sub-orden: fecha + tipo + especialidad + prestador (estilo Panacea)
-      // Solo se agrega cuando cambia el ID_ORDEN
-      grupos.get(key).filas.push(fila);
     }
-  }
+  };
+
+  procesarFilas(ordenesRS, false);
+  procesarFilas(formulacionRS, true);
+
+  if (grupos.size === 0) return '';
 
   let html = '';
 
-  for (const [, grupo] of grupos) {
-    const { titulo, filas } = grupo;
-
-    // Agrupar filas por ID_ORDEN para insertar cabecera por sub-orden
+  for (const [titulo, filas] of grupos) {
+    // Agrupar filas por cabecera de sub-orden (Fecha - Plantilla - Especialidad - Prestador)
     const subOrdenes = new Map();
     for (const f of filas) {
-      const idOrden = f.ID_ORDEN || '_';
-      if (!subOrdenes.has(idOrden)) subOrdenes.set(idOrden, []);
-      subOrdenes.get(idOrden).push(f);
-    }
-
-    html += `<div style="margin-top:10px; clear:both; display:block; width:100%;">`;
-    html += `<b style="font-size:10px;">${escapeHtml(titulo)}</b>`;
-    html += `<table class="orden-table" style="margin-top:4px;">
-      <colgroup>
-        <col style="width:55%">
-        <col style="width:15%">
-        <col style="width:15%">
-        <col style="width:15%">
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Servicio/Procedimiento</th>
-          <th style="text-align:center;">Cantidad</th>
-          <th style="text-align:center;">Estado</th>
-          <th style="text-align:center;">Prioridad</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
-    for (const [, subFilas] of subOrdenes) {
-      const primera = subFilas[0];
-      // Cabecera de sub-orden estilo Panacea: "21/04/2026 10:47 - ORDEN IMAGENOLOGIA - MEDICINA GENERAL - ALVARO JOSE ZAMORA TRUJILLO"
       const partesCab = [];
-      if (primera.FECHA_EXPEDICION) {
-        const d = new Date(primera.FECHA_EXPEDICION);
+      if (f.FECHA_EXPEDICION) {
+        const d = new Date(f.FECHA_EXPEDICION);
         if (!isNaN(d)) {
           const pad = (n) => String(n).padStart(2, '0');
-          const h = d.getUTCHours(), m = d.getUTCMinutes();
-          partesCab.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad(h)}:${pad(m)}`);
+          partesCab.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
         }
       }
-      if (primera.NOMBRE_PLANTILLA) partesCab.push(cleanStr(primera.NOMBRE_PLANTILLA));
-      if (primera.NOMBRE_ESPECIALIDAD) partesCab.push(cleanStr(primera.NOMBRE_ESPECIALIDAD));
-      if (primera.NOMBRE_COMPLETO_PRESTADOR) partesCab.push(cleanStr(primera.NOMBRE_COMPLETO_PRESTADOR));
-      const cabecera = partesCab.join(' - ');
+      if (f.NOMBRE_PLANTILLA) partesCab.push(cleanStr(f.NOMBRE_PLANTILLA));
+      if (f.NOMBRE_ESPECIALIDAD) partesCab.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
+      if (f.NOMBRE_COMPLETO_PRESTADOR) partesCab.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
+      const cabecera = partesCab.join(' - ') || 'ORDEN';
 
-      html += `<tr>
-        <td colspan="4" style="font-weight:bold; background:#f3f4f6; font-size:9px; padding:2px 5px;">
-          ${escapeHtml(cabecera)}
-        </td>
-      </tr>`;
+      // Incluir ID_ORDEN en la clave para no mezclar órdenes diferentes con la misma cabecera
+      const idOrden = f.ID_ORDEN || '_';
+      const key = `${idOrden}|${cabecera}`;
 
-      for (const f of subFilas) {
-        const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
-        const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
-        const srv = codigo ? `${codigo} ${desc}` : desc;
-        const cant = cleanStr(String(f.CANTIDAD || '1'));
-        const est = cleanStr(f.ESTADO_ORDEN || f.ESTADO || '');
-        const prio = cleanStr(f.PRIORIDAD || '');
-        const obs = cleanStr(f.OBSERVACIONES);
-        const com = cleanStr(f.COMENTARIO);
-        let srvHtml = escapeHtml(srv);
-        if (com) srvHtml += `<br><small><b>Comentario:</b> ${escapeHtml(com)}</small>`;
-        if (obs) srvHtml += `<br><small><b>Obs:</b> ${escapeHtml(obs)}</small>`;
+      if (!subOrdenes.has(key)) subOrdenes.set(key, { cabecera, items: [] });
+      subOrdenes.get(key).items.push(f);
+    }
 
-        html += `<tr>
-          <td>${srvHtml}</td>
-          <td style="text-align:center;">${escapeHtml(cant)}</td>
-          <td style="text-align:center;">${escapeHtml(est)}</td>
-          <td style="text-align:center;">${escapeHtml(prio)}</td>
+    const isMed = titulo === 'ORDEN DE MEDICAMENTO:';
+
+    if (isMed) {
+      html += `
+        <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:10px; line-height:1.3; font-family:Arial,sans-serif;" border="0">
+          <colgroup>
+            <col style="width:60%">
+            <col style="width:10%">
+            <col style="width:15%">
+            <col style="width:15%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="text-align:left; font-weight:bold; padding-bottom:4px;">${escapeHtml(titulo)}</th>
+              <th style="text-align:center; font-weight:bold; padding-bottom:4px;">Cantidad</th>
+              <th style="text-align:center; font-weight:bold; padding-bottom:4px;">Días<br>Tratamiento</th>
+              <th style="text-align:left; font-weight:bold; padding-bottom:4px;">Vía administración</th>
+            </tr>
+          </thead>
+          <tbody>`;
+    } else {
+      html += `
+        <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:10px; line-height:1.3; font-family:Arial,sans-serif;" border="0">
+          <colgroup>
+            <col style="width:85%">
+            <col style="width:15%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="text-align:left; font-weight:bold; padding-bottom:4px;">${escapeHtml(titulo)}</th>
+              <th style="text-align:center; font-weight:bold; padding-bottom:4px;">Cantidad</th>
+            </tr>
+          </thead>
+          <tbody>`;
+    }
+
+    for (const [, sub] of subOrdenes) {
+      // Fila de cabecera de sub-orden
+      const colspan = isMed ? 4 : 2;
+      html += `
+        <tr>
+          <td colspan="${colspan}" style="padding-top:2px; padding-bottom:2px; font-size:9.5px;">
+            ${escapeHtml(sub.cabecera)}
+          </td>
         </tr>`;
+
+      // Filas de items
+      for (const f of sub.items) {
+        const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
+        const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || f.ITEM || '');
+        const srv = codigo ? `${codigo} ${desc}` : desc;
+        
+        if (isMed) {
+          let cant = cleanStr(String(f.CANTIDAD_TOTAL || f.CANT_DOSIS || f.CANTIDAD_FOFA || f.CANTIDAD || '1'));
+          const dias = cleanStr(String(f.DIAS_TRATAMIENTO || ''));
+          const via = cleanStr(f.VIA_ADMINISTRACION || f.VIA || 'Oral');
+          
+          html += `
+            <tr>
+              <td style="padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(srv)}</td>
+              <td style="text-align:center; padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(cant)}</td>
+              <td style="text-align:center; padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(dias)}</td>
+              <td style="text-align:left; padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(via)}</td>
+            </tr>`;
+        } else {
+          let cant = cleanStr(String(f.CANTIDAD || '1'));
+          // Las incapacidades pueden no tener cantidad y solo la descripción
+          if (titulo === 'ORDEN DE INCAPACIDAD:') cant = '';
+          
+          html += `
+            <tr>
+              <td style="padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(srv)}</td>
+              <td style="text-align:center; padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(cant)}</td>
+            </tr>`;
+        }
       }
     }
 
-    html += `</tbody></table></div>`;
+    html += `</tbody></table>`;
   }
 
-  // ── Fórmula Médica (medicamentos) al final ────────────────────────────────
-  html += renderFormulaMedicaPanacea(formulacionRS, ordenesRS);
   return html;
 }
 
@@ -1496,7 +1533,7 @@ function buildEstilos(parametros) {
     .tabla-dinamica th,
     .tabla-dinamica td {
       border: 1px solid #000;
-      padding: 4px 6px;
+      padding: 3px 5px;
       vertical-align: top;
       font-size: ${tamanio}px;
       word-break: break-word;
@@ -1528,7 +1565,7 @@ function buildEstilos(parametros) {
     table.orden-table th,
     table.orden-table td {
       border: 1px solid #000;
-      padding: 4px 6px;
+      padding: 3px 5px;
       vertical-align: top;
       word-break: break-word;
       overflow-wrap: break-word;
@@ -1589,25 +1626,27 @@ function renderHtml(payload) {
   const plantillaNombre = (payload.plantilla.meta && (payload.plantilla.meta.NOMBRE || payload.plantilla.meta.IDENTIFICADOR)) || 'HISTORIA CLÍNICA';
 
   const cuerpo = `
-    ${renderEncabezado(payload)}
-    <h1 class="seccion" style="text-align:center">${escapeHtml(plantillaNombre)}</h1>
-    
-    ${renderAlergias(payload)}
-    ${renderAntecedentes(payload)}
-    ${renderSintomas(payload)}
-    ${renderCalculosRiesgo(payload)}
+    <div style="padding: 0 12mm 0 6mm;">
+      ${renderEncabezado(payload)}
+      <h1 class="seccion" style="text-align:center">${escapeHtml(plantillaNombre)}</h1>
+      
+      ${renderAlergias(payload)}
+      ${renderAntecedentes(payload)}
+      ${renderSintomas(payload)}
+      ${renderCalculosRiesgo(payload)}
 
-    ${renderEstructura(payload)}
-    
-    ${renderNotas(payload)}
-    ${renderTratamientosOdonto(payload)}
-    ${renderGraficas(payload)}
-    ${renderDiagnosticos(payload)}
+      ${renderEstructura(payload)}
+      
+      ${renderNotas(payload)}
+      ${renderTratamientosOdonto(payload)}
+      ${renderGraficas(payload)}
+      ${renderDiagnosticos(payload)}
 
-    ${renderProfesionalInfo(payload)}
-    ${renderOrdenesYFormulacion(payload)}
-    ${renderFirma(payload)}
-    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
+      ${renderProfesionalInfo(payload)}
+      ${renderOrdenesYFormulacion(payload)}
+      ${renderFirma(payload)}
+      <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
+    </div>
   `;
 
   const html = `<!DOCTYPE html>
@@ -1686,15 +1725,17 @@ function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
   if (!tablaHtml) return null;
   
   const html = `
-    ${renderEncabezado(payload)}
-    <h1 class="seccion" style="text-align:center">${escapeHtml(tituloDoc)}</h1>
-    ${renderIdentificacionPaciente(payload)}
-    ${renderDiagnosticos(payload)}
-    
-    ${tablaHtml}
-    
-    ${renderFirma(payload)}
-    <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
+    <div style="padding: 0 12mm 0 6mm;">
+      ${renderEncabezado(payload)}
+      <h1 class="seccion" style="text-align:center">${escapeHtml(tituloDoc)}</h1>
+      ${renderIdentificacionPaciente(payload)}
+      ${renderDiagnosticos(payload)}
+      
+      ${tablaHtml}
+      
+      ${renderFirma(payload)}
+      <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
+    </div>
   `;
   
   const body = `<!DOCTYPE html>
@@ -2049,7 +2090,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
 
       // Tabla de identificación del paciente específica para incapacidad
       // line-height:1.4 anula el line-height:0.1 del body (parámetros Panacea)
-      const tdS = 'border:1px solid #555; padding:3px 6px; vertical-align:top; font-size:9.5px; line-height:1.4; width:50%; word-wrap:break-word; word-break:break-word;';
+      const tdS = 'border:1px solid #000; padding:3px 5px; vertical-align:top; font-size:9.5px; line-height:1.4; width:50%; word-wrap:break-word; word-break:break-word;';
       const lb  = (label, val) => `<b>${label}:</b> ${esc(cleanStr(String(val ?? '')))}`;
       const tablaPaciente = `
         <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
