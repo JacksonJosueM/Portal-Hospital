@@ -77,7 +77,7 @@ function formatFecha(value) {
   // Si es string, el constructor new Date() lo interpretará; luego extraemos los componentes UTC.
   const d = value instanceof Date ? value : new Date(value);
   
-  if (isNaN(d.getTime())) return String(value);
+  if (isNaN(d.getTime())) return '';  // Valor inválido → cadena vacía
 
   const pad = (n) => String(n).padStart(2, '0');
   const day = pad(d.getUTCDate());
@@ -164,13 +164,18 @@ function getCampo(payload, posiblesClaves = []) {
 
 function formatSoloFecha(value) {
   if (!value) return '';
-  if (typeof value === 'string' && value.includes('T')) {
+  // Solo detectar ISO estricto (YYYY-MM-DDTHH...) — NO "GMT" ni otros strings con 'T'
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
     const [yyyy, mm, dd] = value.split('T')[0].split('-');
-    return `${dd}/${mm}/${yyyy}`;
+    const yy = String(yyyy).slice(-2);
+    return `${dd}/${mm}/${yy}`;
   }
   const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+  if (isNaN(d.getTime())) return '';  // Valor inválido → vacío
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
 }
 
 function getFallbackCampoPorNombre(payload, nombreCampo = '') {
@@ -241,8 +246,9 @@ function getValor(nodo, payload) {
   // Si es dato del sistema (TIPO_DATO_FIJO=1), buscar en tokens
   if (tipoFijo === TIPO_FIJO.SISTEMA) {
     const paramSp = nodo.PARAMETRO_SP;
-    if (paramSp && payload.tokens[paramSp] != null && payload.tokens[paramSp] !== '') {
-      return escapeHtml(payload.tokens[paramSp]);
+    const tokenVal = paramSp != null ? payload.tokens[paramSp] : undefined;
+    if (tokenVal != null && tokenVal !== undefined && String(tokenVal) !== 'undefined' && String(tokenVal).trim() !== '') {
+      return escapeHtml(tokenVal);
     }
     return null;
   }
@@ -589,8 +595,8 @@ function renderIdentificacionPaciente(payload) {
   const telefono = escapeHtml(b3.TELEFONO || t['TELEFONO'] || t['TELEFONO_CASA'] || '');
   const cliente = escapeHtml(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE || t['CLIENTE'] || '');
   const convenio = escapeHtml(b3.NOMBRE_CONVENIO || at.CONVENIO || t['CONVENIO'] || '');
-  const fechaReg = escapeHtml(formatFecha(b3.FECHA_REGISTRO) || formatFecha(at.FECHA_REGISTRO) || t['FECHA_REGISTRO'] || '');
-  const fechaAten = escapeHtml(formatFecha(b3.FECHA_ATENCION) || formatFecha(at.FECHA_ATENCION) || t['FECHA_ATENCION'] || '');
+  const fechaReg = escapeHtml(formatFecha(b3.FECHA_REGISTRO) || formatFecha(at.FECHA_REGISTRO) || (t['FECHA_REGISTRO'] && t['FECHA_REGISTRO'] !== 'undefined' ? t['FECHA_REGISTRO'] : '') || '');
+  const fechaAten = escapeHtml(formatFecha(b3.FECHA_ATENCION) || formatFecha(at.FECHA_ATENCION) || (t['FECHA_ATENCION'] && t['FECHA_ATENCION'] !== 'undefined' ? t['FECHA_ATENCION'] : '') || '');
 
   const estadoCivil = escapeHtml(
     b3.ESTADO_CIVIL
@@ -657,46 +663,46 @@ function renderIdentificacionPaciente(payload) {
       </colgroup>
       <tbody>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Apellidos:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${apellidos}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Nombres:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${nombres}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Apellidos:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${apellidos}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombres:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${nombres}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Tipo Identificación:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${tipoId}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Número documento:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${numId}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tipo Identificación:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${tipoId}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Número documento:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${numId}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha de Nacimiento:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${fechaNac}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Edad:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${edad}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha de Nacimiento:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaNac}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Edad:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${edad}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Género:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${genero}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Ocupación:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${ocupacion}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Género:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${genero}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Ocupación:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${ocupacion}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Dirección:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${direccion}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Teléfono:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${telefono}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Dirección:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${direccion}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Teléfono:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${telefono}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Nombre del Cliente:</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${cliente}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Convenio:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${convenio}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Nombre del Cliente:</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${cliente}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Convenio:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${convenio}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha registro :</b></td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;">${fechaReg}</td>
-          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word;"><b>Fecha atención:</b></td>
-          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word;">${fechaAten}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha registro :</b></td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaReg}</td>
+          <td style="padding: 3px 6px 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha atención:</b></td>
+          <td style="padding: 3px 0 3px 0; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaAten}</td>
         </tr>
       </tbody>
     </table>
@@ -1173,19 +1179,113 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
 function renderOrdenesYFormulacion(payload) {
   const ordenesRS = payload.clinico.ordenes || [];
   const formulacionRS = payload.clinico.formulacion || [];
-  
-  // Excluir de ordenesPanacea lo que sea de FÓRMULA MÉDICA o MEDICAMENTOS
-  const ordenesSinMeds = ordenesRS.filter(rs => {
-    if (!rs || !rs.length) return false;
-    const tpl = String(rs[0].NOMBRE_PLANTILLA).toUpperCase();
-    return !tpl.includes('MEDICAMENTO');
-  });
+
+  const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // ── Agrupar todos los recordsets (sin medicamentos) por NOMBRE_PLANTILLA ──
+  const grupos = new Map(); // clave: NOMBRE_PLANTILLA normalizado → { titulo, filas }
+
+  for (const rs of ordenesRS) {
+    if (!rs || !rs.length) continue;
+    const tpl = String(rs[0].NOMBRE_PLANTILLA || '').toUpperCase();
+    if (tpl.includes('MEDICAMENTO')) continue; // los medicamentos van en Fórmula Médica
+
+    for (const fila of rs) {
+      const key = cleanStr(fila.NOMBRE_PLANTILLA || 'ORDEN').toUpperCase();
+      if (!grupos.has(key)) {
+        grupos.set(key, { titulo: key + ':', filas: [] });
+      }
+      // Cabecera de sub-orden: fecha + tipo + especialidad + prestador (estilo Panacea)
+      // Solo se agrega cuando cambia el ID_ORDEN
+      grupos.get(key).filas.push(fila);
+    }
+  }
 
   let html = '';
-  html += renderOrdenesPanacea(ordenesSinMeds);
+
+  for (const [, grupo] of grupos) {
+    const { titulo, filas } = grupo;
+
+    // Agrupar filas por ID_ORDEN para insertar cabecera por sub-orden
+    const subOrdenes = new Map();
+    for (const f of filas) {
+      const idOrden = f.ID_ORDEN || '_';
+      if (!subOrdenes.has(idOrden)) subOrdenes.set(idOrden, []);
+      subOrdenes.get(idOrden).push(f);
+    }
+
+    html += `<div style="margin-top:10px; clear:both; display:block; width:100%;">`;
+    html += `<b style="font-size:10px;">${escapeHtml(titulo)}</b>`;
+    html += `<table class="orden-table" style="margin-top:4px;">
+      <colgroup>
+        <col style="width:55%">
+        <col style="width:15%">
+        <col style="width:15%">
+        <col style="width:15%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Servicio/Procedimiento</th>
+          <th style="text-align:center;">Cantidad</th>
+          <th style="text-align:center;">Estado</th>
+          <th style="text-align:center;">Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    for (const [, subFilas] of subOrdenes) {
+      const primera = subFilas[0];
+      // Cabecera de sub-orden estilo Panacea: "21/04/2026 10:47 - ORDEN IMAGENOLOGIA - MEDICINA GENERAL - ALVARO JOSE ZAMORA TRUJILLO"
+      const partesCab = [];
+      if (primera.FECHA_EXPEDICION) {
+        const d = new Date(primera.FECHA_EXPEDICION);
+        if (!isNaN(d)) {
+          const pad = (n) => String(n).padStart(2, '0');
+          const h = d.getUTCHours(), m = d.getUTCMinutes();
+          partesCab.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad(h)}:${pad(m)}`);
+        }
+      }
+      if (primera.NOMBRE_PLANTILLA) partesCab.push(cleanStr(primera.NOMBRE_PLANTILLA));
+      if (primera.NOMBRE_ESPECIALIDAD) partesCab.push(cleanStr(primera.NOMBRE_ESPECIALIDAD));
+      if (primera.NOMBRE_COMPLETO_PRESTADOR) partesCab.push(cleanStr(primera.NOMBRE_COMPLETO_PRESTADOR));
+      const cabecera = partesCab.join(' - ');
+
+      html += `<tr>
+        <td colspan="4" style="font-weight:bold; background:#f3f4f6; font-size:9px; padding:2px 5px;">
+          ${escapeHtml(cabecera)}
+        </td>
+      </tr>`;
+
+      for (const f of subFilas) {
+        const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
+        const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
+        const srv = codigo ? `${codigo} ${desc}` : desc;
+        const cant = cleanStr(String(f.CANTIDAD || '1'));
+        const est = cleanStr(f.ESTADO_ORDEN || f.ESTADO || '');
+        const prio = cleanStr(f.PRIORIDAD || '');
+        const obs = cleanStr(f.OBSERVACIONES);
+        const com = cleanStr(f.COMENTARIO);
+        let srvHtml = escapeHtml(srv);
+        if (com) srvHtml += `<br><small><b>Comentario:</b> ${escapeHtml(com)}</small>`;
+        if (obs) srvHtml += `<br><small><b>Obs:</b> ${escapeHtml(obs)}</small>`;
+
+        html += `<tr>
+          <td>${srvHtml}</td>
+          <td style="text-align:center;">${escapeHtml(cant)}</td>
+          <td style="text-align:center;">${escapeHtml(est)}</td>
+          <td style="text-align:center;">${escapeHtml(prio)}</td>
+        </tr>`;
+      }
+    }
+
+    html += `</tbody></table></div>`;
+  }
+
+  // ── Fórmula Médica (medicamentos) al final ────────────────────────────────
   html += renderFormulaMedicaPanacea(formulacionRS, ordenesRS);
   return html;
 }
+
 
 function renderTratamientosOdonto(payload) {
   const tratamientos = payload.clinico.tratamientosOdonto || [];
