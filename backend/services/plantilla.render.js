@@ -76,7 +76,7 @@ function formatFecha(value) {
   // Si es un objeto Date, usamos sus componentes UTC para evitar el shift de zona horaria local (Bogotá -5h).
   // Si es string, el constructor new Date() lo interpretará; luego extraemos los componentes UTC.
   const d = value instanceof Date ? value : new Date(value);
-  
+
   if (isNaN(d.getTime())) return '';  // Valor inválido → cadena vacía
 
   const pad = (n) => String(n).padStart(2, '0');
@@ -85,11 +85,11 @@ function formatFecha(value) {
   const year = d.getUTCFullYear();
   let hours = d.getUTCHours();
   const minutes = pad(d.getUTCMinutes());
-  
+
   const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
   hours = hours % 12;
   hours = hours ? hours : 12; // el 0 es 12
-  
+
   // Formato: DD/MM/YYYY, HH:mm a. m. (usando valores literales de la DB)
   return `${day}/${month}/${year}, ${pad(hours)}:${minutes} ${ampm}`;
 }
@@ -414,7 +414,7 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
     if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
     if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
     if (nombre) html += `<h2 class="seccion">${nombre}</h2>`;
-    
+
     // Propagar contexto de gineco-obstetricia desde la pestaña
     const isGineco = context.isGineco || esTituloGinecoObstetrico(upperNombre);
     const newContext = { ...context, isGineco };
@@ -466,6 +466,19 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
     if (tipoFijo === TIPO_FIJO.SECCION) {
       if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
       if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
+      
+      let childrenHtml = '';
+      for (const child of nodo.children) {
+        childrenHtml += renderNodo(child, payload, depth + 1, nombre, context);
+      }
+
+      if (nombrePlanoUpperClean === 'ANTECEDENTES PERSONALES') {
+        const textOnly = childrenHtml.replace(/<[^>]*>/g, '').trim();
+        if (textOnly === '' || textOnly === '1' || /^[\d\s\/:\.ampAMP,\-]+$/.test(textOnly)) {
+          return '';
+        }
+      }
+
       if (
         !OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper)
         && !OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)
@@ -474,9 +487,8 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
       ) {
         html += `<h4 class="seccion">${nombre}</h4>`;
       }
-      for (const child of nodo.children) {
-        html += renderNodo(child, payload, depth + 1, nombre, context);
-      }
+      
+      html += childrenHtml;
       return html;
     }
 
@@ -515,13 +527,13 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
       const femaleFields = [
-        'G', 'P', 'A', 'V', 'C', 'M', 
-        'FECHA ÚLTIMO PARTO', 'ÚLTIMA CITOLOGÍA', 'MENARQUIA', 'CICLOS', 
+        'G', 'P', 'A', 'V', 'C', 'M',
+        'FECHA ÚLTIMO PARTO', 'ÚLTIMA CITOLOGÍA', 'MENARQUIA', 'CICLOS',
         'F.U.P', 'F.U.R', 'FECHA DE ULTIMO PARTO', 'ULTIMA CITOLOGIA',
         'ULTIMA FECHA DE MENSTRUACION', 'FECHA ULTIMA MENSTRUACION', 'F.U.M', 'FUM', 'FUR',
         'FECHA DE ULTIMA MENSTRUACION'
       ];
-      
+
       const esCampoFemenino = femaleFields.includes(nUpper) || femaleFields.includes(nUpperNoTilde);
       // Solo ocultamos si es campo femenino Y estamos en sección de gineco, o si es un campo largo inequívoco
       if (esCampoFemenino && (context.isGineco || nUpper.length > 5)) {
@@ -571,7 +583,7 @@ function renderIdentificacionPaciente(payload) {
   const at = payload.atencion || {};
   const b3 = at.basico_op3 || {};
   const t = payload.tokens || {};
-  
+
   function formatDateOnly(value) {
     if (!value) return '';
     if (typeof value === 'string' && value.includes('T')) {
@@ -817,10 +829,23 @@ function renderAlergias(payload) {
 function renderAntecedentes(payload) {
   const ant = payload.paciente.antecedentes || [];
   if (!ant.length) return '';
-  let html = '<h3 class="seccion">ANTECEDENTES PERSONALES</h3>';
+
+  const validos = [];
   for (const a of ant) {
     if (!a.ANTECEDENTE) continue;
-    html += `<div class="campo-line">${escapeHtml(a.ANTECEDENTE)}</div>`;
+    const textOnly = String(a.ANTECEDENTE).replace(/<[^>]*>/g, '').trim();
+    // Omitir si es un "1", está vacío, o son solo fechas basura
+    if (textOnly === '' || textOnly === '1' || /^[\d\s\/:\.ampAMP,\-]+$/.test(textOnly)) {
+      continue;
+    }
+    validos.push(a.ANTECEDENTE);
+  }
+
+  if (validos.length === 0) return '';
+
+  let html = '<h3 class="seccion">ANTECEDENTES PERSONALES</h3>';
+  for (const v of validos) {
+    html += `<div class="campo-line">${escapeHtml(v)}</div>`;
   }
   return html;
 }
@@ -876,8 +901,8 @@ function renderGraficas(payload) {
 
 // Columnas que no aportan valor al paciente y ocupan espacio horizontal
 const denylist = new Set([
-  'CONSECUTIVO', 'ID_ORDEN', 'TIPO_ORDEN', 'ID_PRESTADOR', 'ID_SERVICIO', 
-  'ID_ESTRUCTURA', 'ID_PLANTILLA', 'ID_PROCEDIMIENTO', 'ID_ATENCION', 
+  'CONSECUTIVO', 'ID_ORDEN', 'TIPO_ORDEN', 'ID_PRESTADOR', 'ID_SERVICIO',
+  'ID_ESTRUCTURA', 'ID_PLANTILLA', 'ID_PROCEDIMIENTO', 'ID_ATENCION',
   'USER_NAME', 'USUARIO', 'ID_EMPLEADO', 'ID_DX', 'ID_ARTICULO', 'ID_BODEGA'
 ]);
 
@@ -890,11 +915,11 @@ function renderRecordsets(titulo, recordsets) {
       out += `<h2 class="seccion">${titulo}</h2>`;
       primero = false;
     }
-    
+
     // Filtrar columnas
     const allCols = Object.keys(rs[0]);
     const cols = allCols.filter(c => !denylist.has(c.toUpperCase()));
-    
+
     out += '<table class="tabla-dinamica"><thead><tr>';
     for (const c of cols) {
       // Limpiar nombres de columnas (quitar guiones bajos por espacios para mejor wrap)
@@ -902,7 +927,7 @@ function renderRecordsets(titulo, recordsets) {
       out += `<th>${escapeHtml(label)}</th>`;
     }
     out += '</tr></thead><tbody>';
-    
+
     for (const r of rs) {
       out += '<tr>';
       for (const c of cols) {
@@ -920,8 +945,8 @@ function renderOrdenesPanacea(recordsets) {
   let firstTpl = '';
   for (const rs of recordsets) {
     if (rs && rs.length && rs[0].NOMBRE_PLANTILLA) {
-       firstTpl = rs[0].NOMBRE_PLANTILLA;
-       break;
+      firstTpl = rs[0].NOMBRE_PLANTILLA;
+      break;
     }
   }
   const titulo = (firstTpl || 'ORDEN DE LABORATORIO').toUpperCase();
@@ -956,7 +981,7 @@ function renderOrdenesPanacea(recordsets) {
     if (!rs || !rs.length) continue;
     hasData = true;
     const cleanStr = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-    
+
     for (const f of rs) {
       const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
       let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || f.NOMBRE || f.DESCRIPCION || '');
@@ -1004,9 +1029,9 @@ function renderOrdenesPanacea(recordsets) {
       `;
     }
   }
-  
+
   htmlTable += `</tbody></table></div>`;
-  
+
   return hasData ? htmlTable : '';
 }
 
@@ -1081,7 +1106,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     rs && rs.length && String(rs[0].NOMBRE_PLANTILLA).toUpperCase().includes('MEDICAMENTO')
   );
   const allFormulaRS = [...(formulacionRS || []), ...medRsFromOrdenes];
-  
+
   const filas = [];
   for (const rs of allFormulaRS) {
     if (!rs || !rs.length) continue;
@@ -1121,9 +1146,9 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     const codigo = r.CODIGO_PROCEDIMIENTO || '';
     const desc = r.DESCRIPCION_PROCEDIMIENTO || r.PRUEBA || r.NOMBRE_SERVICIO || '';
     const medicamento = codigo ? `${codigo} - ${desc}` : desc;
-    
+
     const viaAdmin = escapeHtml(r.VIA_ADMINISTRACION || r.VIA || 'Oral');
-    
+
     // Armar Dosis — prioridad: Op2.DISTANCIA > texto descriptivo > valor numérico
     let dosisText = '';
     // Buscar la fila Op2 correspondiente a este medicamento por código de procedimiento
@@ -1133,8 +1158,8 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
       return itemCode === codigoMed;
     }) || {};
     const dosisTextoRaw = op2Row.DISTANCIA
-                       || r.DOSIS_ESPECIAL_TEXTO || r.INDICACIONES || r.POSOLOGIA
-                       || r.DESCRIPCION_POSOLOGIA || r.FRECUENCIA_TEXTO || r.DOSIS_DESCRIPCION;
+      || r.DOSIS_ESPECIAL_TEXTO || r.INDICACIONES || r.POSOLOGIA
+      || r.DESCRIPCION_POSOLOGIA || r.FRECUENCIA_TEXTO || r.DOSIS_DESCRIPCION;
     if (dosisTextoRaw && String(dosisTextoRaw).trim()) {
       dosisText = String(dosisTextoRaw).trim();
     } else {
@@ -1146,7 +1171,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     if (dias && !dosisText.toLowerCase().includes('durante')) {
       dosisText += ` durante ${dias} d\u00edas`;
     }
-    
+
     // Armar Cantidad total
     let cantTotalVal = r.CANT_DOSIS || r.CANTIDAD_FOFA || r.CANTIDAD_TOTAL || r.CANTIDAD;
     if (cantTotalVal == null) {
@@ -1223,7 +1248,7 @@ function renderOrdenesYFormulacion(payload) {
         const d = new Date(f.FECHA_EXPEDICION);
         if (!isNaN(d)) {
           const pad = (n) => String(n).padStart(2, '0');
-          partesCab.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
+          partesCab.push(`${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`);
         }
       }
       if (f.NOMBRE_PLANTILLA) partesCab.push(cleanStr(f.NOMBRE_PLANTILLA));
@@ -1290,12 +1315,12 @@ function renderOrdenesYFormulacion(payload) {
         const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
         const desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || f.ITEM || '');
         const srv = codigo ? `${codigo} ${desc}` : desc;
-        
+
         if (isMed) {
           let cant = cleanStr(String(f.CANTIDAD_TOTAL || f.CANT_DOSIS || f.CANTIDAD_FOFA || f.CANTIDAD || '1'));
           const dias = cleanStr(String(f.DIAS_TRATAMIENTO || ''));
           const via = cleanStr(f.VIA_ADMINISTRACION || f.VIA || 'Oral');
-          
+
           html += `
             <tr>
               <td style="padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(srv)}</td>
@@ -1307,7 +1332,7 @@ function renderOrdenesYFormulacion(payload) {
           let cant = cleanStr(String(f.CANTIDAD || '1'));
           // Las incapacidades pueden no tener cantidad y solo la descripción
           if (titulo === 'ORDEN DE INCAPACIDAD:') cant = '';
-          
+
           html += `
             <tr>
               <td style="padding-top:2px; padding-bottom:2px; font-size:9.5px;">${escapeHtml(srv)}</td>
@@ -1358,12 +1383,14 @@ function renderFirma(payload) {
     prof.PRIMER_NOMBRE, prof.SEGUNDO_NOMBRE, prof.PRIMER_APELLIDO, prof.SEGUNDO_APELLIDO,
   ].filter(Boolean).join(' ');
   // CODIGO_TIPO_IDENTIFICACION ya viene como texto ("CC"); ID_TIPO_IDENTIFICACION es numérico (1)
-  const TIPO_ID_MAP = { 1: 'CC', 2: 'CE', 3: 'PA', 4: 'RC', 5: 'TI', 6: 'AS', 7: 'MS', 8: 'NI',
-                        13: 'PE', 22: 'CD', 31: 'NIT', 41: 'PT', 42: 'CN', 43: 'AN' };
-  const tipoIdRaw  = prof.TIPO_IDENTIFICACION || prof.ID_TIPO_IDENTIFICACION || '';
+  const TIPO_ID_MAP = {
+    1: 'CC', 2: 'CE', 3: 'PA', 4: 'RC', 5: 'TI', 6: 'AS', 7: 'MS', 8: 'NI',
+    13: 'PE', 22: 'CD', 31: 'NIT', 41: 'PT', 42: 'CN', 43: 'AN'
+  };
+  const tipoIdRaw = prof.TIPO_IDENTIFICACION || prof.ID_TIPO_IDENTIFICACION || '';
   const tipoIdText = prof.CODIGO_TIPO_IDENTIFICACION
-                   || TIPO_ID_MAP[Number(tipoIdRaw)]
-                   || String(tipoIdRaw);
+    || TIPO_ID_MAP[Number(tipoIdRaw)]
+    || String(tipoIdRaw);
   const ident = `${tipoIdText} ${prof.NUMERO_IDENTIFICACION || ''}`.trim();
 
   // Nombre completo: los campos individuales pueden no tener SEGUNDO_APELLIDO en la BD del portal;
@@ -1668,26 +1695,26 @@ ${cuerpo}
 }
 
 function clasificarTodasLasOrdenes(ordenesRS, formulacionRS) {
-  const laboratorio    = [];
-  const imagenologia   = [];
-  const medicamentos   = [];
-  const incapacidades  = [];
-  const otras          = [];
+  const laboratorio = [];
+  const imagenologia = [];
+  const medicamentos = [];
+  const incapacidades = [];
+  const otras = [];
 
   const clasificarRS = (rs, isFormulacion) => {
     if (!rs || !rs.length) return;
 
-    const labRows  = [];
-    const imgRows  = [];
-    const medRows  = [];
-    const incRows  = [];
-    const otrRows  = [];
+    const labRows = [];
+    const imgRows = [];
+    const medRows = [];
+    const incRows = [];
+    const otrRows = [];
 
     rs.forEach(row => {
       const plantilla = String(row.NOMBRE_PLANTILLA || '').toUpperCase();
-      const servicio  = String(row.NOMBRE_SERVICIO  || '').toUpperCase();
-      const desc      = String(row.DESCRIPCION_PROCEDIMIENTO || '').toUpperCase();
-      const tipo      = String(row.ID_TIPO_ORDEN    || '').toUpperCase();
+      const servicio = String(row.NOMBRE_SERVICIO || '').toUpperCase();
+      const desc = String(row.DESCRIPCION_PROCEDIMIENTO || '').toUpperCase();
+      const tipo = String(row.ID_TIPO_ORDEN || '').toUpperCase();
 
       const combined = `${plantilla} ${servicio} ${desc} ${tipo}`;
       console.log('Fila encontrada:', combined);
@@ -1713,7 +1740,7 @@ function clasificarTodasLasOrdenes(ordenesRS, formulacionRS) {
     if (otrRows.length > 0) otras.push(otrRows);
   };
 
-  (ordenesRS     || []).forEach(rs => clasificarRS(rs, false));
+  (ordenesRS || []).forEach(rs => clasificarRS(rs, false));
   (formulacionRS || []).forEach(rs => clasificarRS(rs, true));
 
   return { laboratorio, imagenologia, medicamentos, incapacidades, otras };
@@ -1723,7 +1750,7 @@ function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
   const estilos = buildEstilos(payload.parametros);
   let tablaHtml = renderOrdenesPanacea(recordsets);
   if (!tablaHtml) return null;
-  
+
   const html = `
     <div style="padding: 0 12mm 0 6mm;">
       ${renderEncabezado(payload)}
@@ -1737,7 +1764,7 @@ function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
       <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
     </div>
   `;
-  
+
   const body = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1757,71 +1784,71 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
   const estilos = buildEstilos(payload.parametros);
   if (!recordsets || !recordsets.length) return null;
 
-  const at  = payload.atencion || {};
-  const b3  = at.basico_op3 || {};
-  const t   = payload.tokens || {};
+  const at = payload.atencion || {};
+  const b3 = at.basico_op3 || {};
+  const t = payload.tokens || {};
   // datosOrden: primera fila de Historia.QRY_IMPRESION_ORDENES_FORMATOS OPERACION=2
   // op2Rows: todas las filas del mismo SP (una por medicamento, para DISTANCIA/dosis)
-  const dO  = datosOrden || {};
+  const dO = datosOrden || {};
   const esc = escapeHtml;
-  const cl  = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const cl = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
 
   const pad2 = n => String(n).padStart(2, '0');
   const fmtDT = (v) => {
     if (!v) return '';
     const d = new Date(v);
     if (isNaN(d)) return String(v);
-    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
   };
   const fmtD = (v) => {
     if (!v) return '';
     const d = new Date(v);
     if (isNaN(d)) return String(v);
-    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
   };
 
   // ── Datos del paciente ─────────────────────────────────────────────────────
-  const apellidos = esc(cl(b3.APELLIDOS_PACIENTE  || t['APELLIDOS_PACIENTE']  || ''));
-  const nombres   = esc(cl(b3.NOMBRES_PACIENTE    || t['NOMBRES_PACIENTE']    || ''));
-  const tipoId    = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
-  const numId     = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
-  const fechaNac  = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
-  const edad      = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' A\u00f1os' : '') || t['EDAD'] || ''));
-  const genN      = b3.GENERO_PACIENTE;
-  const genero    = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
+  const apellidos = esc(cl(b3.APELLIDOS_PACIENTE || t['APELLIDOS_PACIENTE'] || ''));
+  const nombres = esc(cl(b3.NOMBRES_PACIENTE || t['NOMBRES_PACIENTE'] || ''));
+  const tipoId = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
+  const numId = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
+  const fechaNac = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
+  const edad = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' A\u00f1os' : '') || t['EDAD'] || ''));
+  const genN = b3.GENERO_PACIENTE;
+  const genero = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
   const ocupacion = esc(cl(b3.OCUPACION || t['OCUPACION'] || ''));
   const direccion = esc(cl(b3.DIRECCION || t['DIRECCION'] || ''));
-  const telefono  = esc(cl(b3.TELEFONO  || t['TELEFONO']  || ''));
-  const cliente   = esc(cl(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE  || t['CLIENTE']  || ''));
-  const convenio  = esc(cl(b3.NOMBRE_CONVENIO         || at.CONVENIO || t['CONVENIO'] || ''));
-  const fechaReg  = esc(fmtDT(b3.FECHA_REGISTRO  || at.FECHA_REGISTRO));
-  const fechaAten = esc(fmtDT(b3.FECHA_ATENCION  || at.FECHA_ATENCION));
+  const telefono = esc(cl(b3.TELEFONO || t['TELEFONO'] || ''));
+  const cliente = esc(cl(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE || t['CLIENTE'] || ''));
+  const convenio = esc(cl(b3.NOMBRE_CONVENIO || at.CONVENIO || t['CONVENIO'] || ''));
+  const fechaReg = esc(fmtDT(b3.FECHA_REGISTRO || at.FECHA_REGISTRO));
+  const fechaAten = esc(fmtDT(b3.FECHA_ATENCION || at.FECHA_ATENCION));
 
   // ── Datos de la orden (primer renglón del primer recordset) ────────────────
   // IMPORTANTE: las filas de formulación traen datos del encuentro (TIPO_USO, VIA_INGRESO, etc.)
-  const allRows     = (recordsets || []).flatMap(rs => rs || []);
-  const pFila       = allRows[0] || {};
+  const allRows = (recordsets || []).flatMap(rs => rs || []);
+  const pFila = allRows[0] || {};
   // NUMERO_ORDEN: usar el número público de la orden (NUMERO_ORDEN de Op2), no el ID interno
-  const ordenNum    = esc(cl(String(dO.NUMERO_ORDEN || pFila.NUMERO_ORDEN || pFila.ID_ORDEN || '')));
-  const ordenTipo   = esc(cl(pFila.NOMBRE_PLANTILLA   || 'Orden Medicamentos'));
+  const ordenNum = esc(cl(String(dO.NUMERO_ORDEN || pFila.NUMERO_ORDEN || pFila.ID_ORDEN || '')));
+  const ordenTipo = esc(cl(pFila.NOMBRE_PLANTILLA || 'Orden Medicamentos'));
   const ordenCodigo = esc(cl(String(pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
-  const ordenFecha  = esc(fmtDT(pFila.FECHA_EXPEDICION));
-  const posfechado  = pFila.POSFECHADO != null ? (pFila.POSFECHADO ? 'S\u00ed' : 'No') : 'No';
+  const ordenFecha = esc(fmtDT(pFila.FECHA_EXPEDICION));
+  const posfechado = pFila.POSFECHADO != null ? (pFila.POSFECHADO ? 'S\u00ed' : 'No') : 'No';
   const observaciones = esc(cl(dO.OBSERVACIONES || pFila.OBSERVACIONES || ''));
 
   // Vigencia: FECHA_INICIO / FECHA_TERMINACION vienen de Op2 (OPERACION=2)
-  const vigDesde = fmtD(dO.FECHA_INICIO    || dO.VIGENCIA_DESDE || pFila.VIGENCIA_DESDE || pFila.FECHA_INICIO_VIGENCIA);
+  const vigDesde = fmtD(dO.FECHA_INICIO || dO.VIGENCIA_DESDE || pFila.VIGENCIA_DESDE || pFila.FECHA_INICIO_VIGENCIA);
   const vigHasta = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA || pFila.FECHA_FIN_VIGENCIA || pFila.FECHA_VENCIMIENTO);
   const vigencia = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
 
   // Mappings numéricos del Op2
-  const VIA_MAP     = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalizaci\u00f3n', 3: 'Remitido' };
-  const AMBITO_MAP  = { 1: 'Ambulatorio', 2: 'Hospitalario', 3: 'Domiciliario', 4: 'Urgencias' };
-  const TIPUSO_MAP  = { 0: 'Externo', 1: 'Externo', 2: 'Interno' };
+  const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalizaci\u00f3n', 3: 'Remitido' };
+  const AMBITO_MAP = { 1: 'Ambulatorio', 2: 'Hospitalario', 3: 'Domiciliario', 4: 'Urgencias' };
+  const TIPUSO_MAP = { 0: 'Externo', 1: 'Externo', 2: 'Interno' };
 
   // VIA_INGRESO: Op2 usa ID_ORIGEN_VIA_INGRESO (numérico)
   const viaN = dO.ID_ORIGEN_VIA_INGRESO != null ? dO.ID_ORIGEN_VIA_INGRESO
-             : (dO.VIA_INGRESO ?? pFila.VIA_INGRESO ?? b3.VIA_INGRESO ?? at.VIA_INGRESO);
+    : (dO.VIA_INGRESO ?? pFila.VIA_INGRESO ?? b3.VIA_INGRESO ?? at.VIA_INGRESO);
   const viaIngreso = esc(VIA_MAP[viaN] ?? cl(dO.NOMBRE_VIA_INGRESO || pFila.NOMBRE_VIA_INGRESO || b3.NOMBRE_VIA_INGRESO || t['VIA_INGRESO'] || ''));
 
   // TIPO_USUARIO: texto directo en Op2
@@ -1832,13 +1859,13 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
 
   // AMBITO: Op2 devuelve ID_AMBITO numérico
   const ambitoN = dO.ID_AMBITO;
-  const ambito  = esc(ambitoN != null ? (AMBITO_MAP[ambitoN] || String(ambitoN))
-                    : cl(dO.AMBITO_ATENCION || dO.AMBITO || pFila.AMBITO || b3.AMBITO_ATENCION || t['AMBITO'] || ''));
+  const ambito = esc(ambitoN != null ? (AMBITO_MAP[ambitoN] || String(ambitoN))
+    : cl(dO.AMBITO_ATENCION || dO.AMBITO || pFila.AMBITO || b3.AMBITO_ATENCION || t['AMBITO'] || ''));
 
   // TIPO_USO: Op2 devuelve TIPO_USO numérico (1 = Externo)
   const tipoUsoN = dO.TIPO_USO;
-  const tipoUso  = esc(tipoUsoN != null ? (TIPUSO_MAP[tipoUsoN] || String(tipoUsoN))
-                     : cl(pFila.TIPO_USO || b3.TIPO_USO || t['TIPO_USO'] || ''));
+  const tipoUso = esc(tipoUsoN != null ? (TIPUSO_MAP[tipoUsoN] || String(tipoUsoN))
+    : cl(pFila.TIPO_USO || b3.TIPO_USO || t['TIPO_USO'] || ''));
 
   // ── Estilos de celda de la tabla ──────────────────────────────────────────
   const thS = 'padding:3px 5px; border:1px solid #000; background:#d9d9d9; font-weight:bold; font-size:9.5px; line-height:1.3; white-space:nowrap;';
@@ -1913,10 +1940,10 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
         || d.ID_TIPO_DIAGNOSTICO_RIPS === 0 || d.ID_TIPO_DIAGNOSTICO_RIPS === '0'
         || tipo.includes('PRINCIPAL') || tipo.includes('INGRESO');
     };
-    const principal   = dxList.find(esPpal) || dxList[0];
+    const principal = dxList.find(esPpal) || dxList[0];
     const relacionados = dxList.filter(d => d !== principal);
 
-    const codPpal  = esc(cl(principal.CODIGO_CIE || principal.CIE || principal.CODIGO_DX || ''));
+    const codPpal = esc(cl(principal.CODIGO_CIE || principal.CIE || principal.CODIGO_DX || ''));
     const tipoPpal = esc(cl(principal.DESCRIPCION_TIPO_DX_PPAL || principal.TIPO_DX || ''));
 
     let primeraLinea = `<b>Diagn&oacute;sticos</b>Principal Ingreso: ${codPpal}`;
@@ -1928,8 +1955,8 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
     }).join('');
 
     dxHtml = `<div style="font-size:9.5px; margin-top:6px; line-height:1.35;">`
-           + `<div>${primeraLinea}</div>${relLineas}`
-           + `</div>`;
+      + `<div>${primeraLinea}</div>${relLineas}`
+      + `</div>`;
   }
 
   // ── Tabla de medicamentos (sin título) — pasar op2Rows para DISTANCIA/dosis ──
@@ -1992,8 +2019,8 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
   const VIA_INGRESO_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
 
   // GUIDs fijos del formato de incapacidad (estructura op=1)
-  const GUID_AMBITO    = '2E70F5DD-3E27-4738-A7C4-208A5B098B43';
-  const GUID_ORIGEN    = '94F03BF9-70CA-4F94-8895-8F567F0781C1';
+  const GUID_AMBITO = '2E70F5DD-3E27-4738-A7C4-208A5B098B43';
+  const GUID_ORIGEN = '94F03BF9-70CA-4F94-8895-8F567F0781C1';
   const GUID_MODALIDAD = 'AE0B1652-DA41-4886-B4C6-E6E86561A896';
 
   let blocksHtml = '';
@@ -2008,7 +2035,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
         : null;
 
       // #region agent log
-      fetch('http://127.0.0.1:7484/ingest/1b468bd2-7ffd-4415-8c1e-811e7c186967',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6767d5'},body:JSON.stringify({sessionId:'6767d5',location:'plantilla.render.js:renderHtmlIncapacidades',message:'orden procesada',data:{idOrden,hasDatos:!!datos,datosKeys:datos?Object.keys(datos).slice(0,10):null,hasDatosDinamicos:Object.keys(datosDinamicos)},timestamp:Date.now(),hypothesisId:'H1-H5'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7484/ingest/1b468bd2-7ffd-4415-8c1e-811e7c186967', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '6767d5' }, body: JSON.stringify({ sessionId: '6767d5', location: 'plantilla.render.js:renderHtmlIncapacidades', message: 'orden procesada', data: { idOrden, hasDatos: !!datos, datosKeys: datos ? Object.keys(datos).slice(0, 10) : null, hasDatosDinamicos: Object.keys(datosDinamicos) }, timestamp: Date.now(), hypothesisId: 'H1-H5' }) }).catch(() => { });
       // #endregion
 
       if (!datos) {
@@ -2024,7 +2051,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
             }
           }
           partes.push(cleanStr(f.NOMBRE_PLANTILLA));
-          if (f.NOMBRE_ESPECIALIDAD)       partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
+          if (f.NOMBRE_ESPECIALIDAD) partes.push(cleanStr(f.NOMBRE_ESPECIALIDAD));
           if (f.NOMBRE_COMPLETO_PRESTADOR) partes.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
           desc = partes.join(' - ');
         }
@@ -2044,8 +2071,8 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
         : [];
       const valorTextoPorGuid = new Map(textoRows.map(r => [r.ID_ESTRUCTURA_PLANTILLA, r.VALOR_TEXTO]));
 
-      const ambito   = cleanStr(valorTextoPorGuid.get(GUID_AMBITO)    || '');
-      const origenInc = cleanStr(valorListaPorGuid.get(GUID_ORIGEN)   || '');
+      const ambito = cleanStr(valorTextoPorGuid.get(GUID_AMBITO) || '');
+      const origenInc = cleanStr(valorListaPorGuid.get(GUID_ORIGEN) || '');
       const modalidad = cleanStr(valorListaPorGuid.get(GUID_MODALIDAD) || '');
 
       // Título de tipo de orden en título case
@@ -2054,7 +2081,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
 
       // Género y vía de ingreso
       const generoTexto = GENERO_MAP[datos.GENERO_PACIENTE] || '';
-      const viaIngreso  = VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO] != null
+      const viaIngreso = VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO] != null
         ? VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO]
         : '';
 
@@ -2072,8 +2099,8 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
 
       // Líneas multi-campo igual que Panacea
       const causaLine = [
-        datos.CAUSA_EXTERNA    ? `Causa externa: ${esc(cleanStr(datos.CAUSA_EXTERNA))}` : '',
-        datos.OCUPACION        ? `Ocupaci\u00f3n: ${esc(cleanStr(datos.OCUPACION))}` : 'Ocupaci\u00f3n:',
+        datos.CAUSA_EXTERNA ? `Causa externa: ${esc(cleanStr(datos.CAUSA_EXTERNA))}` : '',
+        datos.OCUPACION ? `Ocupaci\u00f3n: ${esc(cleanStr(datos.OCUPACION))}` : 'Ocupaci\u00f3n:',
         datos.TIPO_VINCULACION ? `Tipo vinculaci\u00f3n: ${esc(cleanStr(datos.TIPO_VINCULACION))}` : '',
       ].filter(Boolean).join(' &nbsp; ');
 
@@ -2083,15 +2110,15 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
       ].filter(Boolean).join(' &nbsp; ');
 
       const ambitoLine = [
-        ambito    ? `\u00c1mbito de atenci\u00f3n: ${esc(ambito)}`    : '',
-        origenInc ? `Origen Incapacidad: ${esc(origenInc)}`           : '',
-        modalidad ? `Modalidad Tec. Salud: ${esc(modalidad)}`         : '',
+        ambito ? `\u00c1mbito de atenci\u00f3n: ${esc(ambito)}` : '',
+        origenInc ? `Origen Incapacidad: ${esc(origenInc)}` : '',
+        modalidad ? `Modalidad Tec. Salud: ${esc(modalidad)}` : '',
       ].filter(Boolean).join(' &nbsp; ');
 
       // Tabla de identificación del paciente específica para incapacidad
       // line-height:1.4 anula el line-height:0.1 del body (parámetros Panacea)
       const tdS = 'border:1px solid #000; padding:3px 5px; vertical-align:top; font-size:9.5px; line-height:1.4; width:50%; word-wrap:break-word; word-break:break-word;';
-      const lb  = (label, val) => `<b>${label}:</b> ${esc(cleanStr(String(val ?? '')))}`;
+      const lb = (label, val) => `<b>${label}:</b> ${esc(cleanStr(String(val ?? '')))}`;
       const tablaPaciente = `
         <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
           <tr>
@@ -2133,17 +2160,17 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
         </div>
         ${tablaPaciente}
         <div style="font-size:9.5px; margin-top:8px; line-height:1.65;">
-          ${vigencia    ? `<div>Vigencia: ${esc(vigencia)}</div>` : ''}
+          ${vigencia ? `<div>Vigencia: ${esc(vigencia)}</div>` : ''}
           ${datos.TIPO_USUARIO ? `<div>Tipo de usuario: ${esc(cleanStr(datos.TIPO_USUARIO))}</div>` : ''}
-          ${viaIngreso  ? `<div>V\u00eda de ingreso: ${esc(viaIngreso)}</div>` : ''}
+          ${viaIngreso ? `<div>V\u00eda de ingreso: ${esc(viaIngreso)}</div>` : ''}
           ${dxList.length ? `
             <div><b>Diagn\u00f3sticos</b></div>
             ${dxPpal ? `<div>Principal Ingreso: ${esc(dxPpal.CODIGO_CIE || '')} &nbsp; Tipo principal: ${esc(dxPpal.DESCRIPCION_TIPO_DX_PPAL || '')},</div>` : ''}
           ` : ''}
-          ${causaLine   ? `<div>${causaLine}</div>` : ''}
-          ${diasLine    ? `<div>${diasLine}</div>` : ''}
-          ${datos.ITEM  ? `<div>Diagn\u00f3stico: ${esc(cleanStr(datos.ITEM))}</div>` : ''}
-          ${ambitoLine  ? `<div>${ambitoLine}</div>` : ''}
+          ${causaLine ? `<div>${causaLine}</div>` : ''}
+          ${diasLine ? `<div>${diasLine}</div>` : ''}
+          ${datos.ITEM ? `<div>Diagn\u00f3stico: ${esc(cleanStr(datos.ITEM))}</div>` : ''}
+          ${ambitoLine ? `<div>${ambitoLine}</div>` : ''}
           <div>Observaciones: ${esc(cleanStr(datos.OBSERVACIONES || ''))}</div>
         </div>`;
     }
@@ -2191,60 +2218,60 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
   const estilos = buildEstilos(payload.parametros);
   if (!recordsets || !recordsets.length) return null;
 
-  const at  = payload.atencion || {};
-  const b3  = at.basico_op3 || {};
-  const t   = payload.tokens || {};
-  const dO  = datosOrden || {};
+  const at = payload.atencion || {};
+  const b3 = at.basico_op3 || {};
+  const t = payload.tokens || {};
+  const dO = datosOrden || {};
   const esc = escapeHtml;
-  const cl  = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const cl = (s) => String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-  const pad2  = n => String(n).padStart(2, '0');
+  const pad2 = n => String(n).padStart(2, '0');
   const fmtDT = (v) => {
     if (!v) return '';
     const d = new Date(v);
     if (isNaN(d)) return String(v);
-    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
   };
-  const fmtD  = (v) => {
+  const fmtD = (v) => {
     if (!v) return '';
     const d = new Date(v);
     if (isNaN(d)) return String(v);
-    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+    return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
   };
 
   // ── Datos del paciente ─────────────────────────────────────────────────────
-  const apellidos = esc(cl(b3.APELLIDOS_PACIENTE  || t['APELLIDOS_PACIENTE']  || ''));
-  const nombres   = esc(cl(b3.NOMBRES_PACIENTE    || t['NOMBRES_PACIENTE']    || ''));
-  const tipoId    = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
-  const numId     = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
-  const fechaNac  = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
-  const edad      = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' Años' : '') || t['EDAD'] || ''));
-  const genN      = b3.GENERO_PACIENTE;
-  const genero    = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
+  const apellidos = esc(cl(b3.APELLIDOS_PACIENTE || t['APELLIDOS_PACIENTE'] || ''));
+  const nombres = esc(cl(b3.NOMBRES_PACIENTE || t['NOMBRES_PACIENTE'] || ''));
+  const tipoId = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
+  const numId = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
+  const fechaNac = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
+  const edad = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' Años' : '') || t['EDAD'] || ''));
+  const genN = b3.GENERO_PACIENTE;
+  const genero = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
   const ocupacion = esc(cl(b3.OCUPACION || t['OCUPACION'] || ''));
   const direccion = esc(cl(b3.DIRECCION || t['DIRECCION'] || ''));
-  const telefono  = esc(cl(b3.TELEFONO  || t['TELEFONO']  || ''));
-  const cliente   = esc(cl(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE  || t['CLIENTE']  || ''));
-  const convenio  = esc(cl(b3.NOMBRE_CONVENIO         || at.CONVENIO || t['CONVENIO'] || ''));
-  const fechaReg  = esc(fmtDT(b3.FECHA_REGISTRO  || at.FECHA_REGISTRO));
-  const fechaAten = esc(fmtDT(b3.FECHA_ATENCION  || at.FECHA_ATENCION));
+  const telefono = esc(cl(b3.TELEFONO || t['TELEFONO'] || ''));
+  const cliente = esc(cl(b3.NOMBRE_CLIENTE_CONVENIO || at.CLIENTE || t['CLIENTE'] || ''));
+  const convenio = esc(cl(b3.NOMBRE_CONVENIO || at.CONVENIO || t['CONVENIO'] || ''));
+  const fechaReg = esc(fmtDT(b3.FECHA_REGISTRO || at.FECHA_REGISTRO));
+  const fechaAten = esc(fmtDT(b3.FECHA_ATENCION || at.FECHA_ATENCION));
 
   // ── Datos de la orden ─────────────────────────────────────────────────────
-  const allRows   = (recordsets || []).flatMap(rs => rs || []);
-  const pFila     = allRows[0] || {};
-  const ordenNum  = esc(cl(String(dO.NUMERO_ORDEN  || pFila.NUMERO_ORDEN  || pFila.ID_ORDEN || '')));
+  const allRows = (recordsets || []).flatMap(rs => rs || []);
+  const pFila = allRows[0] || {};
+  const ordenNum = esc(cl(String(dO.NUMERO_ORDEN || pFila.NUMERO_ORDEN || pFila.ID_ORDEN || '')));
   const ordenTipo = esc(cl(dO.NOMBRE_PLANTILLA || pFila.NOMBRE_PLANTILLA || 'Orden Imagenología'));
-  const ordenCod  = esc(cl(String(dO.ID_TIPO_PLANTILLA || pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
+  const ordenCod = esc(cl(String(dO.ID_TIPO_PLANTILLA || pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
   const ordenFecha = esc(fmtDT(dO.FECHA_EXPEDICION || pFila.FECHA_EXPEDICION));
   const observaciones = esc(cl(dO.OBSERVACIONES || pFila.OBSERVACIONES || ''));
 
   const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
-  const viaN      = dO.ID_ORIGEN_VIA_INGRESO;
+  const viaN = dO.ID_ORIGEN_VIA_INGRESO;
   const viaIngreso = esc(VIA_MAP[viaN] != null ? VIA_MAP[viaN] : cl(dO.NOMBRE_VIA_INGRESO || pFila.NOMBRE_VIA_INGRESO || b3.NOMBRE_VIA_INGRESO || t['VIA_INGRESO'] || ''));
-  const tipoUsr   = esc(cl(dO.TIPO_USUARIO || pFila.TIPO_USUARIO || b3.TIPO_USUARIO || at.TIPO_USUARIO || t['TIPO_USUARIO'] || ''));
-  const vigDesde  = fmtD(dO.FECHA_INICIO    || dO.VIGENCIA_DESDE  || pFila.VIGENCIA_DESDE);
-  const vigHasta  = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA);
-  const vigencia  = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
+  const tipoUsr = esc(cl(dO.TIPO_USUARIO || pFila.TIPO_USUARIO || b3.TIPO_USUARIO || at.TIPO_USUARIO || t['TIPO_USUARIO'] || ''));
+  const vigDesde = fmtD(dO.FECHA_INICIO || dO.VIGENCIA_DESDE || pFila.VIGENCIA_DESDE);
+  const vigHasta = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA);
+  const vigencia = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
 
   // ── Estilos de celda ──────────────────────────────────────────────────────
   const thS = 'padding:3px 5px; border:1px solid #000; background:#d9d9d9; font-weight:bold; font-size:9.5px; line-height:1.3; white-space:nowrap;';
@@ -2305,10 +2332,10 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
         || d.ID_TIPO_DIAGNOSTICO_RIPS === 0 || d.ID_TIPO_DIAGNOSTICO_RIPS === '0'
         || tipo.includes('PRINCIPAL') || tipo.includes('INGRESO');
     };
-    const principal   = dxList.find(esPpal) || dxList[0];
+    const principal = dxList.find(esPpal) || dxList[0];
     const relacionados = dxList.filter(d => d !== principal);
 
-    const codPpal  = esc(cl(principal.CODIGO_CIE || principal.CIE || principal.CODIGO_DX || ''));
+    const codPpal = esc(cl(principal.CODIGO_CIE || principal.CIE || principal.CODIGO_DX || ''));
     const tipoPpal = esc(cl(principal.DESCRIPCION_TIPO_DX_PPAL || principal.TIPO_DX || ''));
 
     let primeraLinea = `<b>Diagn&oacute;sticos</b>Principal Ingreso: ${codPpal}`;

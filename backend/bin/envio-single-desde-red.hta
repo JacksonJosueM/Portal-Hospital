@@ -278,6 +278,36 @@
       document.getElementById('toast').className = 'toast';
     }
 
+    function extraerErrorServidor(xhr) {
+      try {
+        var texto = trim(xhr.responseText || '');
+        if (!texto) return '';
+        var parsed = JSON.parse(texto);
+        if (parsed && parsed.error) return parsed.error;
+        if (parsed && parsed.message) return parsed.message;
+      } catch (e) {}
+      return '';
+    }
+
+    function mensajeAmigableError(detalleError) {
+      var detalle = trim(detalleError || '');
+      var lower = detalle.toLowerCase();
+
+      if (lower.indexOf('no tiene correo') !== -1 ||
+          lower.indexOf('sin correo') !== -1 ||
+          lower.indexOf('correo registrado') !== -1) {
+        return {
+          titulo: 'Paciente sin correo',
+          detalle: 'El paciente no tiene correo registrado para recibir la historia.'
+        };
+      }
+
+      return {
+        titulo: 'No se pudo enviar la historia',
+        detalle: detalle || ('Verifique que el servidor esté activo: ' + API)
+      };
+    }
+
     function enviar(ev) {
       if (ev && ev.preventDefault) ev.preventDefault();
 
@@ -313,9 +343,11 @@
               inputDoc.focus();
             } catch (e) {}
           } else {
+            var detalleError = extraerErrorServidor(xhr);
+            var mensajeError = mensajeAmigableError(detalleError);
             showToast('error',
-              'Error al enviar (' + xhr.status + ')',
-              'Verifique que el servidor esté activo: ' + API);
+              mensajeError.titulo,
+              mensajeError.detalle);
           }
         };
         xhr.send('{"numDoc":"' + doc + '"}');
