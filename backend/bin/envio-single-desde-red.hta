@@ -334,9 +334,22 @@
           btn.disabled = false;
           btn.innerText = 'Enviar';
           if (xhr.status >= 200 && xhr.status < 300) {
+            var destinoCorreo = '';
+            try {
+              var resJson = JSON.parse(xhr.responseText || '{}');
+              if (resJson.destino) {
+                destinoCorreo = resJson.destino;
+              }
+            } catch (e) {}
+
+            var mensajeDetalle = 'El envío se está procesando. Puede registrar otro paciente.';
+            if (destinoCorreo) {
+              mensajeDetalle = 'Se envió al correo: <b>' + destinoCorreo + '</b><br><br>' + mensajeDetalle;
+            }
+
             showToast('ok',
               'Historia enviada · ' + doc,
-              'El envío se está procesando. Puede registrar otro paciente.');
+              mensajeDetalle);
             try {
               var inputDoc = document.getElementById('doc');
               inputDoc.value = '';

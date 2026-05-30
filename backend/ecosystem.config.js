@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'envio-historia-clinica',
     script: './index.js',
-    instances: 1,
+    instances: 4,
     exec_mode: 'fork',
     autorestart: true,
     watch: false,

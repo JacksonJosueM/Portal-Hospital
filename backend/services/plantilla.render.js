@@ -1,7 +1,7 @@
 /**
- * ════════════════════════════════════════════════════════════════════════════
- *  PLANTILLA RENDER · Motor de impresión dinámico estilo Panacea
- * ════════════════════════════════════════════════════════════════════════════
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  PLANTILLA RENDER Â· Motor de impresi&oacute;n din&aacute;mico estilo Panacea
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *
  *  Recibe el `printPayload` que arma `historia.print.service.js` y produce
  *  un HTML listo para Puppeteer, replicando la maqueta que Panacea
@@ -11,25 +11,25 @@
  *  capa de wrappers SP (normalizeColumns.js).
  *
  *  Estructura de la plantilla (QRY_ESTRUCTURA_PLANA_PLANTILLA):
- *    ORIGEN          3=pestaña(sección), 2=grupo, 1=dato
- *    ID              GUID — PK del nodo
- *    ID_ESTRUCTURA   int  — ID del dato/grupo/pestaña subyacente
- *    ID_ESTRUCTURA_PADRE  GUID — nodo padre (permite árbol multinivel)
- *    TIPO_DATO_FIJO  int  — tipo fijo (1=texto,2=decimal,...,9=imagen)
- *    TIPO_DATO       int  — tipo genérico (cuando TIPO_DATO_FIJO=0)
+ *    ORIGEN          3=pesta&ntilde;a(secci&oacute;n), 2=grupo, 1=dato
+ *    ID              GUID â€” PK del nodo
+ *    ID_ESTRUCTURA   int  â€” ID del dato/grupo/pesta&ntilde;a subyacente
+ *    ID_ESTRUCTURA_PADRE  GUID â€” nodo padre (permite &aacute;rbol multinivel)
+ *    TIPO_DATO_FIJO  int  â€” tipo fijo (1=texto,2=decimal,...,9=imagen)
+ *    TIPO_DATO       int  â€” tipo gen&eacute;rico (cuando TIPO_DATO_FIJO=0)
  *    NOMBRE          string
- *    ORDEN           int  — orden dentro de su padre
+ *    ORDEN           int  â€” orden dentro de su padre
  *
  *  Los STM_DATOS_* usan ID_ESTRUCTURA_PLANTILLA (GUID) = nodo.ID
- * ════════════════════════════════════════════════════════════════════════════
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  */
 
-// ── Tipos de dato fijo (TIPO_DATO_FIJO de Panacea) ───────────────────────
+// â”€â”€ Tipos de dato fijo (TIPO_DATO_FIJO de Panacea) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TIPO_FIJO = {
   SISTEMA: 1,       // dato fijo del sistema (rellenado por el token, no por STM_DATOS_*)
   DECIMAL: 2,
   ENTERO: 3,
-  SELECCION: 4,     // selección / combo
+  SELECCION: 4,     // selecci&oacute;n / combo
   LISTA: 5,
   TABLA: 6,
   SECCION: 7,
@@ -37,29 +37,29 @@ const TIPO_FIJO = {
   IMAGEN: 9,
 };
 
-// ── Tipos de dato genérico (TIPO_DATO cuando TIPO_DATO_FIJO=0) ───────────
+// â”€â”€ Tipos de dato gen&eacute;rico (TIPO_DATO cuando TIPO_DATO_FIJO=0) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TIPO_DATO = {
   NUMERICO: 1,
   DECIMAL: 2,
   LISTA_VALORES: 4,
-  TEXTO: 5,          // texto multilínea
+  TEXTO: 5,          // texto multil&iacute;nea
   FECHA: 8,
   LOGICO: 10,        // booleano
   CALCULADO: 11,
   TEXTO_LARGO: 17,   // texto lista/largo
 };
 
-// Rótulos que vienen desde la estructura dinámica pero no deben
+// R&oacute;tulos que vienen desde la estructura din&aacute;mica pero no deben
 // imprimirse en el PDF final porque duplican/ensucian el layout.
 const OMITIR_RUBRICAS_ESTRUCTURA = new Set([
   'RIPS CONSULTA',
   'DIAGNOSTICO',
-  'DIAGNÓSTICO',
+  'DIAGN&Oacute;STICO',
   'DIAGNOSTICOS',
-  'DIAGNÓSTICOS',
+  'DIAGN&Oacute;STICOS',
 ]);
 
-// ── Helpers de formato ────────────────────────────────────────────────────
+// â”€â”€ Helpers de formato â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function escapeHtml(value) {
   if (value == null) return '';
   return String(value)
@@ -73,11 +73,11 @@ function escapeHtml(value) {
 
 function formatFecha(value) {
   if (!value) return '';
-  // Si es un objeto Date, usamos sus componentes UTC para evitar el shift de zona horaria local (Bogotá -5h).
-  // Si es string, el constructor new Date() lo interpretará; luego extraemos los componentes UTC.
+  // Si es un objeto Date, usamos sus componentes UTC para evitar el shift de zona horaria local (Bogot&aacute; -5h).
+  // Si es string, el constructor new Date() lo interpretar&aacute;; luego extraemos los componentes UTC.
   const d = value instanceof Date ? value : new Date(value);
 
-  if (isNaN(d.getTime())) return '';  // Valor inválido → cadena vacía
+  if (isNaN(d.getTime())) return '';  // Valor inv&aacute;lido â†’ cadena vac&iacute;a
 
   const pad = (n) => String(n).padStart(2, '0');
   const day = pad(d.getUTCDate());
@@ -109,7 +109,7 @@ function bytesToDataUrl(bytes, mime = 'image/png') {
 }
 
 function buildFormat(parametros = {}) {
-  // PAPEL_HISTORIA puede venir como código (1=Carta, 2=Oficio, etc.).
+  // PAPEL_HISTORIA puede venir como c&oacute;digo (1=Carta, 2=Oficio, etc.).
   switch (parametros.PAPEL_HISTORIA) {
     case 2: return 'Legal';
     case 3: return 'A4';
@@ -117,7 +117,7 @@ function buildFormat(parametros = {}) {
   }
 }
 
-// ── Resolución de macros tipo {{NOMBRE_TOKEN}} ────────────────────────────
+// â”€â”€ Resoluci&oacute;n de macros tipo {{NOMBRE_TOKEN}} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function resolverTokens(texto, tokens) {
   if (!texto || typeof texto !== 'string') return texto || '';
   return texto.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (m, key) => {
@@ -164,14 +164,14 @@ function getCampo(payload, posiblesClaves = []) {
 
 function formatSoloFecha(value) {
   if (!value) return '';
-  // Solo detectar ISO estricto (YYYY-MM-DDTHH...) — NO "GMT" ni otros strings con 'T'
+  // Solo detectar ISO estricto (YYYY-MM-DDTHH...) â€” NO "GMT" ni otros strings con 'T'
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
     const [yyyy, mm, dd] = value.split('T')[0].split('-');
     const yy = String(yyyy).slice(-2);
     return `${dd}/${mm}/${yy}`;
   }
   const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return '';  // Valor inválido → vacío
+  if (isNaN(d.getTime())) return '';  // Valor inv&aacute;lido â†’ vac&iacute;o
   const dd = String(d.getUTCDate()).padStart(2, '0');
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
   const yy = String(d.getUTCFullYear()).slice(-2);
@@ -185,15 +185,15 @@ function getFallbackCampoPorNombre(payload, nombreCampo = '') {
     'peso': ['Peso'],
     'fecha de la talla': ['Fecha de la talla'],
     'talla': ['Talla'],
-    'indice de masa corporal': ['Índice de masa corporal', 'Indice de masa corporal'],
+    'indice de masa corporal': ['&Iacute;ndice de masa corporal', 'Indice de masa corporal'],
     'temperatura': ['Temperatura'],
     'circunferencia de cintura': ['Circunferencia de cintura'],
-    'tension arterial sistolica (tas)': ['Tensión arterial sistólica (TAS)', 'Tension arterial sistolica (TAS)'],
-    'tension arterial diastolica (tad)': ['Tensión arterial diastólica (TAD)', 'Tension arterial diastolica (TAD)'],
-    'tam (tension arterial media)': ['TAM (Tensión arterial media)', 'TAM (Tension arterial media)'],
-    'saturacion de oxigeno': ['Saturación de Oxigeno', 'Saturacion de Oxigeno'],
+    'tension arterial sistolica (tas)': ['Tensi&oacute;n arterial sist&oacute;lica (TAS)', 'Tension arterial sistolica (TAS)'],
+    'tension arterial diastolica (tad)': ['Tensi&oacute;n arterial diast&oacute;lica (TAD)', 'Tension arterial diastolica (TAD)'],
+    'tam (tension arterial media)': ['TAM (Tensi&oacute;n arterial media)', 'TAM (Tension arterial media)'],
+    'saturacion de oxigeno': ['Saturaci&oacute;n de Oxigeno', 'Saturacion de Oxigeno'],
     'frecuencia respiratoria (min)': ['Frecuencia Respitatoria (min)', 'Frecuencia Respiratoria (min)'],
-    'frecuencia cardiaca': ['Frecuencia Cárdiaca', 'Frecuencia Cardiaca'],
+    'frecuencia cardiaca': ['Frecuencia C&aacute;rdiaca', 'Frecuencia Cardiaca'],
   };
   const valor = getCampo(payload, aliases[n] || [nombreCampo]);
   if (valor == null || String(valor).trim() === '') return '';
@@ -201,10 +201,10 @@ function getFallbackCampoPorNombre(payload, nombreCampo = '') {
   return String(valor);
 }
 
-// ── Árbol de la plantilla ─────────────────────────────────────────────────
+// â”€â”€ Ãrbol de la plantilla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /**
- * Reconstruye el árbol de la estructura plana usando ID_ESTRUCTURA_PADRE.
- * Retorna los nodos raíz con propiedad `children` agregada.
+ * Reconstruye el &aacute;rbol de la estructura plana usando ID_ESTRUCTURA_PADRE.
+ * Retorna los nodos ra&iacute;z con propiedad `children` agregada.
  */
 function buildTree(estructura) {
   const byId = new Map();
@@ -235,9 +235,9 @@ function buildTree(estructura) {
   return roots;
 }
 
-// ── Resolución del valor de un campo ──────────────────────────────────────
+// â”€â”€ Resoluci&oacute;n del valor de un campo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getValor(nodo, payload) {
-  const guid = nodo.ID; // GUID del nodo → clave en valoresPorEstructura
+  const guid = nodo.ID; // GUID del nodo â†’ clave en valoresPorEstructura
   const valores = payload.valoresPorEstructura;
   const tipoFijo = nodo.TIPO_DATO_FIJO || 0;
   const tipoDato = nodo.TIPO_DATO || 0;
@@ -395,7 +395,7 @@ function renderTabla(datoMeta, filas) {
   return html;
 }
 
-// ── Recorrido del árbol (depth-first) ─────────────────────────────────────
+// â”€â”€ Recorrido del &aacute;rbol (depth-first) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
   const origen = nodo.ORIGEN;
   const nombre = escapeHtml(nodo.NOMBRE || nodo.DESCRIPCION || '');
@@ -404,9 +404,9 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
   const nombrePlanoUpperClean = nombrePlanoUpper.replace(/:$/, '').trim();
   let html = '';
 
-  // Pestaña (sección de nivel superior)
+  // Pesta&ntilde;a (secci&oacute;n de nivel superior)
   if (origen === 3) {
-    // Si la pestaña es "INFORMACION DEL PACIENTE" o similar, renderizamos el bloque estático y saltamos los hijos
+    // Si la pesta&ntilde;a es "INFORMACION DEL PACIENTE" o similar, renderizamos el bloque est&aacute;tico y saltamos los hijos
     const upperNombre = nombre.toUpperCase();
     if (upperNombre.includes('INFORMACION DEL PACIENTE') || upperNombre.includes('IDENTIFICACION DEL PACIENTE')) {
       return renderIdentificacionPaciente(payload);
@@ -415,7 +415,7 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
     if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
     if (nombre) html += `<h2 class="seccion">${nombre}</h2>`;
 
-    // Propagar contexto de gineco-obstetricia desde la pestaña
+    // Propagar contexto de gineco-obstetricia desde la pesta&ntilde;a
     const isGineco = context.isGineco || esTituloGinecoObstetrico(upperNombre);
     const newContext = { ...context, isGineco };
 
@@ -425,10 +425,10 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
     return html;
   }
 
-  // Grupo (subsección) — omite el encabezado si repite el nombre de la pestaña padre
+  // Grupo (subsecci&oacute;n) â€” omite el encabezado si repite el nombre de la pesta&ntilde;a padre
   if (origen === 2) {
     if (OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper) || OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)) {
-      // Mantener los hijos, omitiendo solo el título redundante.
+      // Mantener los hijos, omitiendo solo el t&iacute;tulo redundante.
       for (const child of nodo.children) {
         html += renderNodo(child, payload, depth + 1, parentNombre, context);
       }
@@ -448,7 +448,7 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
       html += `<${tag} class="seccion">${nombre}</${tag}>`;
     }
 
-    // Propagar si estamos dentro de una sección de gineco-obstetricia
+    // Propagar si estamos dentro de una secci&oacute;n de gineco-obstetricia
     const isGineco = context.isGineco || esTituloGinecoObstetrico(upperNombre);
     const newContext = { ...context, isGineco };
 
@@ -462,7 +462,7 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
   if (origen === 1) {
     const tipoFijo = nodo.TIPO_DATO_FIJO || 0;
 
-    // Sección decorativa (TIPO_DATO_FIJO=7)
+    // Secci&oacute;n decorativa (TIPO_DATO_FIJO=7)
     if (tipoFijo === TIPO_FIJO.SECCION) {
       if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
       if (context.isMale && esTituloGinecoObstetrico(nombrePlanoUpper)) return '';
@@ -499,17 +499,17 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
       return html;
     }
 
-    // Campo con valor (título duplicado de profesional como nodo suelto)
+    // Campo con valor (t&iacute;tulo duplicado de profesional como nodo suelto)
     if (esTituloProfesionalSalud(nombrePlanoUpperClean)) return '';
 
     let valor = getValor(nodo, payload);
-    if (valor === null) valor = ''; // Restaurar la impresión de campos vacíos como Talla, Peso, etc.
+    if (valor === null) valor = ''; // Restaurar la impresi&oacute;n de campos vac&iacute;os como Talla, Peso, etc.
     if (valor === '') {
       const fallback = getFallbackCampoPorNombre(payload, nombrePlano);
       if (fallback) valor = escapeHtml(fallback);
     }
 
-    // Evitar que rótulos técnicos/redundantes salgan como líneas vacías.
+    // Evitar que r&oacute;tulos t&eacute;cnicos/redundantes salgan como l&iacute;neas vac&iacute;as.
     if (OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpper) || OMITIR_RUBRICAS_ESTRUCTURA.has(nombrePlanoUpperClean)) {
       for (const child of nodo.children) {
         html += renderNodo(child, payload, depth + 1, nombre, context);
@@ -519,8 +519,8 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
 
     const label = nombre.endsWith(':') ? nombre : `${nombre}:`;
 
-    // Filtro para ocultar campos ginecobstétricos exclusivamente a hombres
-    // Solo se aplica si estamos dentro de una sección marcada como GINECO/OBSTETRI o si el nombre es claramente femenino
+    // Filtro para ocultar campos ginecobst&eacute;tricos exclusivamente a hombres
+    // Solo se aplica si estamos dentro de una secci&oacute;n marcada como GINECO/OBSTETRI o si el nombre es claramente femenino
     if (context.isMale) {
       const nUpper = nombre.toUpperCase().replace(':', '').trim();
       const nUpperNoTilde = nUpper
@@ -528,14 +528,14 @@ function renderNodo(nodo, payload, depth, parentNombre, context = {}) {
         .replace(/[\u0300-\u036f]/g, '');
       const femaleFields = [
         'G', 'P', 'A', 'V', 'C', 'M',
-        'FECHA ÚLTIMO PARTO', 'ÚLTIMA CITOLOGÍA', 'MENARQUIA', 'CICLOS',
+        'FECHA &Uacute;LTIMO PARTO', '&Uacute;LTIMA CITOLOG&Iacute;A', 'MENARQUIA', 'CICLOS',
         'F.U.P', 'F.U.R', 'FECHA DE ULTIMO PARTO', 'ULTIMA CITOLOGIA',
         'ULTIMA FECHA DE MENSTRUACION', 'FECHA ULTIMA MENSTRUACION', 'F.U.M', 'FUM', 'FUR',
         'FECHA DE ULTIMA MENSTRUACION'
       ];
 
       const esCampoFemenino = femaleFields.includes(nUpper) || femaleFields.includes(nUpperNoTilde);
-      // Solo ocultamos si es campo femenino Y estamos en sección de gineco, o si es un campo largo inequívoco
+      // Solo ocultamos si es campo femenino Y estamos en secci&oacute;n de gineco, o si es un campo largo inequ&iacute;voco
       if (esCampoFemenino && (context.isGineco || nUpper.length > 5)) {
         return ''; // Omitir el campo completo
       }
@@ -578,7 +578,7 @@ function renderEstructura(payload) {
   return html;
 }
 
-// ── Bloques específicos ──────────────────────────────────────────────────
+// â”€â”€ Bloques espec&iacute;ficos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderIdentificacionPaciente(payload) {
   const at = payload.atencion || {};
   const b3 = at.basico_op3 || {};
@@ -600,7 +600,7 @@ function renderIdentificacionPaciente(payload) {
   const tipoId = escapeHtml(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || t['TIPO_ID'] || '');
   const numId = escapeHtml(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || t['IDENTIFICACION'] || t['NUMERO_DOCUMENTO'] || '');
   const fechaNac = escapeHtml(formatDateOnly(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
-  const edad = escapeHtml(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? b3.EDAD_PACIENTE + ' Años' : t['EDAD'] || ''));
+  const edad = escapeHtml(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? b3.EDAD_PACIENTE + ' A&ntilde;os' : t['EDAD'] || ''));
   const genero = escapeHtml(b3.GENERO_PACIENTE === 1 ? 'Masculino' : b3.GENERO_PACIENTE === 2 ? 'Femenino' : t['SEXO'] || t['GENERO'] || '');
   const ocupacion = escapeHtml(b3.OCUPACION || t['OCUPACION'] || '');
   const direccion = escapeHtml(b3.DIRECCION || t['DIRECCION'] || '');
@@ -622,16 +622,16 @@ function renderIdentificacionPaciente(payload) {
     b3.NOMBRE_RESPONSABLE
     || b3.ACOMPANANTE
     || b3.NOMBRE_ACOMPANANTE
-    || t['NOMBRE_ACOMPAÑANTE']
+    || t['NOMBRE_ACOMPA&Ntilde;ANTE']
     || t['RESPONSABLE']
-    || getCampo(payload, ['Nombre responsable', 'Acompañante'])
+    || getCampo(payload, ['Nombre responsable', 'Acompa&ntilde;ante'])
     || 'No registrado'
   );
   const parentesco = escapeHtml(
     b3.PARENTESCO_RESPONSABLE
     || b3.PARENTESCO
     || b3.PARENTESCO_ACOMPANANTE
-    || t['PARENTESCO_ACOMPAÑANTE']
+    || t['PARENTESCO_ACOMPA&Ntilde;ANTE']
     || t['PARENTESCO']
     || getCampo(payload, ['Parentesco responsable', 'Parentesco'])
     || 'No registrado'
@@ -639,9 +639,9 @@ function renderIdentificacionPaciente(payload) {
   const telResp = escapeHtml(
     b3.TELEFONO_RESPONSABLE
     || b3.TELEFONO_ACOMPANANTE
-    || t['TELEFONO_ACOMPAÑANTE']
+    || t['TELEFONO_ACOMPA&Ntilde;ANTE']
     || t['TELEFONO_RESPONSABLE']
-    || getCampo(payload, ['Teléfono responsable', 'Telefono responsable'])
+    || getCampo(payload, ['Tel&eacute;fono responsable', 'Telefono responsable'])
     || 'No registrado'
   );
   const etnia = escapeHtml(
@@ -649,23 +649,23 @@ function renderIdentificacionPaciente(payload) {
     || b3.ETNIA
     || t['PERTENENCIA_ETNICA']
     || t['ETNIA']
-    || getCampo(payload, ['Pertenencia étnica', 'Pertenencia etnica', 'Etnia'])
+    || getCampo(payload, ['Pertenencia &eacute;tnica', 'Pertenencia etnica', 'Etnia'])
     || 'No registrado'
   );
   const pais = escapeHtml(
     b3.PAIS_NACIMIENTO
     || b3.PAIS
     || t['PAIS_NACIMIENTO']
-    || getCampo(payload, ['País nacimiento', 'Pais nacimiento'])
+    || getCampo(payload, ['Pa&iacute;s nacimiento', 'Pais nacimiento'])
     || 'No registrado'
   );
-  const codigoProcedimiento = escapeHtml(b3.CODIGO_PROCEDIMIENTO || getCampo(payload, ['Código procedimiento', 'Codigo procedimiento']));
+  const codigoProcedimiento = escapeHtml(b3.CODIGO_PROCEDIMIENTO || getCampo(payload, ['C&oacute;digo procedimiento', 'Codigo procedimiento']));
   const nombreProcedimiento = escapeHtml(b3.NOMBRE_PROCEDIMIENTO || getCampo(payload, ['Nombre procedimiento']));
   const lineaProcedimiento = [codigoProcedimiento, nombreProcedimiento].filter(Boolean).join(' - ');
 
   return `
     ${lineaProcedimiento ? `<div class="campo-line" style="margin: 0 0 4px 0;">${lineaProcedimiento}</div>` : ''}
-    <h3 style="font-size: 10px; font-weight: bold; margin: 4px 0 4px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.3;">IDENTIFICACIÓN DEL PACIENTE</h3>
+    <h3 style="font-size: 10px; font-weight: bold; margin: 4px 0 4px 0; text-transform: uppercase; text-decoration: underline; clear: both; display: block; line-height: 1.3;">IDENTIFICACI&Oacute;N DEL PACIENTE</h3>
     <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; table-layout: fixed;">
       <colgroup>
         <col style="width: 18%">
@@ -681,9 +681,9 @@ function renderIdentificacionPaciente(payload) {
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${nombres}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tipo Identificación:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tipo Identificaci&oacute;n:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${tipoId}</td>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Número documento:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>N&uacute;mero documento:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${numId}</td>
         </tr>
         <tr>
@@ -693,15 +693,15 @@ function renderIdentificacionPaciente(payload) {
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${edad}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Género:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>G&eacute;nero:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${genero}</td>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Ocupación:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Ocupaci&oacute;n:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${ocupacion}</td>
         </tr>
         <tr>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Dirección:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Direcci&oacute;n:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${direccion}</td>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Teléfono:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Tel&eacute;fono:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${telefono}</td>
         </tr>
         <tr>
@@ -713,7 +713,7 @@ function renderIdentificacionPaciente(payload) {
         <tr>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha registro :</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaReg}</td>
-          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha atención:</b></td>
+          <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;"><b>Fecha atenci&oacute;n:</b></td>
           <td style="padding: 3px 5px; vertical-align: top; word-break: break-word; border: 1px solid #000;">${fechaAten}</td>
         </tr>
       </tbody>
@@ -722,9 +722,9 @@ function renderIdentificacionPaciente(payload) {
       ${estadoCivil !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Estado civil:</b> ${estadoCivil}</span>` : ''}
       ${resp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Nombre responsable:</b> ${resp}</span>` : ''}
       ${parentesco !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Parentesco responsable:</b> ${parentesco}</span>` : ''}
-      ${telResp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Teléfono responsable:</b> ${telResp}</span>` : ''}
-      ${etnia !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Pertenencia étnica:</b> ${etnia}</span>` : ''}
-      ${pais !== 'No registrado' ? `<span><b>País nacimiento:</b> ${pais}</span>` : ''}
+      ${telResp !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Tel&eacute;fono responsable:</b> ${telResp}</span>` : ''}
+      ${etnia !== 'No registrado' ? `<span style="margin-right: 16px;"><b>Pertenencia &eacute;tnica:</b> ${etnia}</span>` : ''}
+      ${pais !== 'No registrado' ? `<span><b>Pa&iacute;s nacimiento:</b> ${pais}</span>` : ''}
     </div>
   `;
 }
@@ -760,7 +760,7 @@ function renderEncabezado(payload) {
           ${escapeHtml(direccion)} - ${escapeHtml(telefono)} - Marinilla - Colombia
         </td>
         <td class="header-right" style="width:25%; vertical-align: top;">
-          Fecha impresión: ${fechaImpresion}<br>
+          Fecha impresi&oacute;n: ${fechaImpresion}<br>
           Copia
         </td>
       </tr>
@@ -791,7 +791,7 @@ function renderDiagnosticos(payload) {
   const descripcionPrincipal = principal.DESCRIPCION_CIE || principal.DESCRIPCION || '';
   const tipoPrincipal = principal.DESCRIPCION_TIPO_DX_PPAL || principal.TIPO_DX || principal.TIPO || '';
 
-  let html = '<h3 class="seccion">DIAGNÓSTICOS</h3>';
+  let html = '<h3 class="seccion">DIAGN&Oacute;STICOS</h3>';
   html += `<div class="campo-line"><b>Principal Ingreso:</b> <span class="val">${escapeHtml(`${codigoPrincipal} - ${descripcionPrincipal}`.trim().replace(/^-\s*/, ''))}</span></div>`;
 
   if (tipoPrincipal || relacionados.length) {
@@ -820,7 +820,7 @@ function renderAlergias(payload) {
   if (!al.length) return '';
   let html = '<h3 class="seccion">ALERGIAS</h3><ul>';
   for (const a of al) {
-    html += `<li>${escapeHtml(a.NOMBRE || a.CODIGO || '')}${a.ADICION ? ' — ' + escapeHtml(a.ADICION) : ''}</li>`;
+    html += `<li>${escapeHtml(a.NOMBRE || a.CODIGO || '')}${a.ADICION ? ' â€” ' + escapeHtml(a.ADICION) : ''}</li>`;
   }
   html += '</ul>';
   return html;
@@ -834,7 +834,7 @@ function renderAntecedentes(payload) {
   for (const a of ant) {
     if (!a.ANTECEDENTE) continue;
     const textOnly = String(a.ANTECEDENTE).replace(/<[^>]*>/g, '').trim();
-    // Omitir si es un "1", está vacío, o son solo fechas basura
+    // Omitir si es un "1", est&aacute; vac&iacute;o, o son solo fechas basura
     if (textOnly === '' || textOnly === '1' || /^[\d\s\/:\.ampAMP,\-]+$/.test(textOnly)) {
       continue;
     }
@@ -853,7 +853,7 @@ function renderAntecedentes(payload) {
 function renderSintomas(payload) {
   const sin = payload.clinico.sintomas || [];
   if (!sin.length) return '';
-  let html = '<h3 class="seccion">SÍNTOMAS</h3><ul>';
+  let html = '<h3 class="seccion">S&Iacute;NTOMAS</h3><ul>';
   for (const s of sin) {
     html += `<li>${escapeHtml(s.NOMBRE_SINTOMA || s.NOMBRE || '')}</li>`;
   }
@@ -864,7 +864,7 @@ function renderSintomas(payload) {
 function renderCalculosRiesgo(payload) {
   const cr = payload.clinico.calculosRiesgo || [];
   if (!cr.length) return '';
-  let html = '<h2 class="seccion">CÁLCULOS DE RIESGO</h2><table class="tabla-dinamica"><thead><tr><th>Nombre</th><th>Interpretación</th><th>Puntaje Total</th><th>Observaciones</th></tr></thead><tbody>';
+  let html = '<h2 class="seccion">CÃLCULOS DE RIESGO</h2><table class="tabla-dinamica"><thead><tr><th>Nombre</th><th>Interpretaci&oacute;n</th><th>Puntaje Total</th><th>Observaciones</th></tr></thead><tbody>';
   for (const c of cr) {
     html += `<tr>
       <td>${escapeHtml(c.NOMBRE || '')}</td>
@@ -890,11 +890,11 @@ function renderNotas(payload) {
 function renderGraficas(payload) {
   const graficas = payload.clinico.graficas || [];
   if (!graficas.length) return '';
-  let html = '<h2 class="seccion">GRÁFICAS E IMÁGENES DE ATENCIÓN</h2>';
+  let html = '<h2 class="seccion">GRÃFICAS E IMÃGENES DE ATENCI&Oacute;N</h2>';
   for (const g of graficas) {
     if (!g.GRAFICA_BYTES) continue;
     const url = bytesToDataUrl(g.GRAFICA_BYTES, g.TIPO_MIME || 'image/png');
-    html += `<div class="campo-block"><b>${escapeHtml(g.NOMBRE || 'Gráfica')}</b><br><img src="${url}" style="max-width:100%; margin-top:8px;"></div>`;
+    html += `<div class="campo-block"><b>${escapeHtml(g.NOMBRE || 'Gr&aacute;fica')}</b><br><img src="${url}" style="max-width:100%; margin-top:8px;"></div>`;
   }
   return html;
 }
@@ -986,7 +986,7 @@ function renderOrdenesPanacea(recordsets) {
       const codigo = cleanStr(f.CODIGO_PROCEDIMIENTO);
       let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || f.NOMBRE || f.DESCRIPCION || '');
 
-      // Fallback para filas de incapacidad/licencia donde los campos de descripción vienen null.
+      // Fallback para filas de incapacidad/licencia donde los campos de descripci&oacute;n vienen null.
       // Panacea muestra: "23/04/2025 10:00 - INCAPACIDADES O LICENCIAS - MEDICINA GENERAL - SABRINA JOHANA CAAMANO BANOL"
       if (!desc && f.NOMBRE_PLANTILLA) {
         const partes = [];
@@ -1042,7 +1042,7 @@ function numeroALetras(num) {
 
   const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
   const decenas = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
-  const especiales = { 11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 21: 'veintiuno', 22: 'veintidós', 23: 'veintitrés', 24: 'veinticuatro', 25: 'veinticinco', 26: 'veintiséis', 27: 'veintisiete', 28: 'veintiocho', 29: 'veintinueve' };
+  const especiales = { 11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'diecis&eacute;is', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 21: 'veintiuno', 22: 'veintid&oacute;s', 23: 'veintitr&eacute;s', 24: 'veinticuatro', 25: 'veinticinco', 26: 'veintis&eacute;is', 27: 'veintisiete', 28: 'veintiocho', 29: 'veintinueve' };
   const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
 
   function decen(x) {
@@ -1079,15 +1079,15 @@ function getFormaFarmaceutica(nombreMedicamento) {
   if (n.includes('AMPOLLA')) return 'Ampolla';
   if (n.includes('TABLETA DISPERSABLE')) return 'Tableta dispersable';
   if (n.includes('TABLETA') || n.includes('TAB')) return 'Tableta';
-  if (n.includes('CAPSULA') || n.includes('CAP')) return 'Cápsula';
+  if (n.includes('CAPSULA') || n.includes('CAP')) return 'C&aacute;psula';
   if (n.includes('JARABE')) return 'Jarabe';
-  if (n.includes('SUSPENSION')) return 'Suspensión';
+  if (n.includes('SUSPENSION')) return 'Suspensi&oacute;n';
   if (n.includes('GOTAS')) return 'Gotas';
   if (n.includes('CREMA')) return 'Crema';
-  if (n.includes('UNGUENTO')) return 'Ungüento';
-  if (n.includes('LOCION')) return 'Loción';
+  if (n.includes('UNGUENTO')) return 'Ung&uuml;ento';
+  if (n.includes('LOCION')) return 'Loci&oacute;n';
   if (n.includes('GEL')) return 'Gel';
-  if (n.includes('SOLUCION')) return 'Solución';
+  if (n.includes('SOLUCION')) return 'Soluci&oacute;n';
   if (n.includes('POLVO')) return 'Polvo';
   if (n.includes('AEROSOL') || n.includes('INHALADOR')) return 'Inhalador';
   if (n.includes('SUPOSITORIO')) return 'Supositorio';
@@ -1132,7 +1132,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
         <tr>
           <th style="text-align:center;">#</th>
           <th>Medicamento</th>
-          <th style="text-align:center;">Vía<br>administración</th>
+          <th style="text-align:center;">V&iacute;a<br>administraci&oacute;n</th>
           <th style="text-align:center;">Dosis</th>
           <th style="text-align:center;">Cantidad total</th>
           <th style="text-align:center;">Estado</th>
@@ -1149,9 +1149,9 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
 
     const viaAdmin = escapeHtml(r.VIA_ADMINISTRACION || r.VIA || 'Oral');
 
-    // Armar Dosis — prioridad: Op2.DISTANCIA > texto descriptivo > valor numérico
+    // Armar Dosis â€” prioridad: Op2.DISTANCIA > texto descriptivo > valor num&eacute;rico
     let dosisText = '';
-    // Buscar la fila Op2 correspondiente a este medicamento por código de procedimiento
+    // Buscar la fila Op2 correspondiente a este medicamento por c&oacute;digo de procedimiento
     const codigoMed = (r.CODIGO_PROCEDIMIENTO || '').trim();
     const op2Row = op2Rows.find(row => {
       const itemCode = (String(row.ITEM || '')).split(' - ')[0].trim();
@@ -1166,7 +1166,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
       const dosisVal = r.DOSIS || r.CANTIDAD || '1';
       dosisText = `${dosisVal} cada 24 horas`;
     }
-    // Agregar duración si no viene incluida
+    // Agregar duraci&oacute;n si no viene incluida
     const dias = r.DIAS_TRATAMIENTO;
     if (dias && !dosisText.toLowerCase().includes('durante')) {
       dosisText += ` durante ${dias} d\u00edas`;
@@ -1182,7 +1182,7 @@ function renderFormulaMedicaPanacea(formulacionRS, ordenesRS, opts = {}, op2Rows
     const forma = getFormaFarmaceutica(desc) || (op2Row.FORMA_FARMACEUTICA ? String(op2Row.FORMA_FARMACEUTICA) : '');
     const cantLetras = numeroALetras(cantTotalVal);
     let cantidadTotalText = `${cantTotalVal} (${cantLetras}) ${forma}`.trim();
-    // Reemplazar espacios dobles si forma está vacío
+    // Reemplazar espacios dobles si forma est&aacute; vac&iacute;o
     cantidadTotalText = cantidadTotalText.replace(/\s+/g, ' ');
 
     html += `
@@ -1218,7 +1218,7 @@ function renderOrdenesYFormulacion(payload) {
         const tplUpper = tpl.toUpperCase();
         let tipoGrupo = tplUpper;
 
-        if (tplUpper.includes('IMAGENOLOG')) tipoGrupo = 'ORDEN DE IMAGENOLOGÍA:';
+        if (tplUpper.includes('IMAGENOLOG')) tipoGrupo = 'ORDEN DE IMAGENOLOG&Iacute;A:';
         else if (tplUpper.includes('LABORATORIO') || tplUpper.includes('LAB.')) tipoGrupo = 'ORDEN DE LABORATORIO:';
         else if (tplUpper.includes('MEDICAMENTO') || tplUpper.includes('FARMACIA') || isMedicamentoDefault) tipoGrupo = 'ORDEN DE MEDICAMENTO:';
         else if (tplUpper.includes('INCAPACIDAD') || tplUpper.includes('LICENCIA')) tipoGrupo = 'ORDEN DE INCAPACIDAD:';
@@ -1256,7 +1256,7 @@ function renderOrdenesYFormulacion(payload) {
       if (f.NOMBRE_COMPLETO_PRESTADOR) partesCab.push(cleanStr(f.NOMBRE_COMPLETO_PRESTADOR));
       const cabecera = partesCab.join(' - ') || 'ORDEN';
 
-      // Incluir ID_ORDEN en la clave para no mezclar órdenes diferentes con la misma cabecera
+      // Incluir ID_ORDEN en la clave para no mezclar &oacute;rdenes diferentes con la misma cabecera
       const idOrden = f.ID_ORDEN || '_';
       const key = `${idOrden}|${cabecera}`;
 
@@ -1279,8 +1279,8 @@ function renderOrdenesYFormulacion(payload) {
             <tr>
               <th style="text-align:left; font-weight:bold; padding-bottom:4px;">${escapeHtml(titulo)}</th>
               <th style="text-align:center; font-weight:bold; padding-bottom:4px;">Cantidad</th>
-              <th style="text-align:center; font-weight:bold; padding-bottom:4px;">Días<br>Tratamiento</th>
-              <th style="text-align:left; font-weight:bold; padding-bottom:4px;">Vía administración</th>
+              <th style="text-align:center; font-weight:bold; padding-bottom:4px;">D&iacute;as<br>Tratamiento</th>
+              <th style="text-align:left; font-weight:bold; padding-bottom:4px;">V&iacute;a administraci&oacute;n</th>
             </tr>
           </thead>
           <tbody>`;
@@ -1330,7 +1330,7 @@ function renderOrdenesYFormulacion(payload) {
             </tr>`;
         } else {
           let cant = cleanStr(String(f.CANTIDAD || '1'));
-          // Las incapacidades pueden no tener cantidad y solo la descripción
+          // Las incapacidades pueden no tener cantidad y solo la descripci&oacute;n
           if (titulo === 'ORDEN DE INCAPACIDAD:') cant = '';
 
           html += `
@@ -1352,7 +1352,7 @@ function renderOrdenesYFormulacion(payload) {
 function renderTratamientosOdonto(payload) {
   const tratamientos = payload.clinico.tratamientosOdonto || [];
   if (!tratamientos || tratamientos.length === 0) return '';
-  return renderRecordsets('TRATAMIENTOS ODONTOLÓGICOS', tratamientos);
+  return renderRecordsets('TRATAMIENTOS ODONTOL&Oacute;GICOS', tratamientos);
 }
 
 function renderProfesionalInfo(payload) {
@@ -1367,10 +1367,10 @@ function renderProfesionalInfo(payload) {
   return `
     <div class="profesional-print-block" style="margin-top: 20px; page-break-inside: avoid; clear: both; display: block;">
       <h3 class="seccion">PROFESIONAL DE LA SALUD</h3>
-      <div class="campo-line"><b>Tipo identificación:</b> ${escapeHtml(prof.TIPO_IDENTIFICACION || 'CC')}</div>
-      <div class="campo-line"><b>Número de identificación:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="campo-line"><b>Tipo identificaci&oacute;n:</b> ${escapeHtml(prof.TIPO_IDENTIFICACION || 'CC')}</div>
+      <div class="campo-line"><b>N&uacute;mero de identificaci&oacute;n:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
       <div class="campo-line"><b>Nombre profesional:</b> ${escapeHtml(nombre)}</div>
-      <div class="campo-line"><b>Registro médico:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="campo-line"><b>Registro m&eacute;dico:</b> ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
       <div class="campo-line"><b>Especialidad:</b> ${escapeHtml(especialidad)}</div>
     </div>
   `;
@@ -1382,7 +1382,7 @@ function renderFirma(payload) {
   const nombre = [
     prof.PRIMER_NOMBRE, prof.SEGUNDO_NOMBRE, prof.PRIMER_APELLIDO, prof.SEGUNDO_APELLIDO,
   ].filter(Boolean).join(' ');
-  // CODIGO_TIPO_IDENTIFICACION ya viene como texto ("CC"); ID_TIPO_IDENTIFICACION es numérico (1)
+  // CODIGO_TIPO_IDENTIFICACION ya viene como texto ("CC"); ID_TIPO_IDENTIFICACION es num&eacute;rico (1)
   const TIPO_ID_MAP = {
     1: 'CC', 2: 'CE', 3: 'PA', 4: 'RC', 5: 'TI', 6: 'AS', 7: 'MS', 8: 'NI',
     13: 'PE', 22: 'CD', 31: 'NIT', 41: 'PT', 42: 'CN', 43: 'AN'
@@ -1394,7 +1394,7 @@ function renderFirma(payload) {
   const ident = `${tipoIdText} ${prof.NUMERO_IDENTIFICACION || ''}`.trim();
 
   // Nombre completo: los campos individuales pueden no tener SEGUNDO_APELLIDO en la BD del portal;
-  // b3.NOMBRE_COMPLETO_PRESTADOR viene de Panacea y sí lo incluye.
+  // b3.NOMBRE_COMPLETO_PRESTADOR viene de Panacea y s&iacute; lo incluye.
   const b3Prof = payload.atencion && payload.atencion.basico_op3;
   const nombreCompleto = [
     prof.PRIMER_NOMBRE, prof.SEGUNDO_NOMBRE, prof.PRIMER_APELLIDO, prof.SEGUNDO_APELLIDO,
@@ -1416,13 +1416,13 @@ function renderFirma(payload) {
       <div class="firma-line" style="margin-top: 0;"></div>
       <div class="firma-texto"><b>${escapeHtml(nombreCompleto)}</b></div>
       <div class="firma-texto">${escapeHtml(ident)}</div>
-      <div class="firma-texto">N° de registro: ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
+      <div class="firma-texto">NÂ° de registro: ${escapeHtml(prof.NUMERO_IDENTIFICACION || '')}</div>
       <div class="firma-texto">${escapeHtml(especialidad)}</div>
     </div>
   `;
 }
 
-// ── Estilos ──────────────────────────────────────────────────────────────
+// â”€â”€ Estilos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function buildEstilos(parametros) {
   const p = (parametros && parametros[0]) || {};
   const tamanio = p.TAMANIO_FUENTE || 9;
@@ -1433,7 +1433,7 @@ function buildEstilos(parametros) {
   const mr = p.MARGEN_DERECHO || 25;
 
   return `
-    /* ══ Reset / Base ═════════════════════════════════════════════ */
+    /* â•â• Reset / Base â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -1445,7 +1445,7 @@ function buildEstilos(parametros) {
     }
     img { max-width: 100%; height: auto; }
 
-    /* ══ Encabezado ══════════════════════════════════════════ */
+    /* â•â• Encabezado â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .header-table {
       width: 100%;
       border-collapse: collapse;
@@ -1457,7 +1457,7 @@ function buildEstilos(parametros) {
     .header-center { text-align: center; font-size: 10px; }
     .header-right  { text-align: right; font-size: 9px; font-weight: bold; white-space: nowrap; line-height: 1.3; vertical-align: top; }
 
-    /* ══ Títulos de sección ══════════════════════════════════════ */
+    /* â•â• T&iacute;tulos de secci&oacute;n â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     h1.seccion {
       font-size: ${tamanio + 2}px;
       text-transform: uppercase;
@@ -1503,7 +1503,7 @@ function buildEstilos(parametros) {
       break-inside: avoid;
     }
 
-    /* ══ Campos clínicos ═════════════════════════════════════════ */
+    /* â•â• Campos cl&iacute;nicos â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .campo-line {
       display: block;
       clear: both;
@@ -1550,7 +1550,7 @@ function buildEstilos(parametros) {
       line-height: 1.3;
     }
 
-    /* ══ TABLAS — clave para evitar superposición ══════════════════════ */
+    /* â•â• TABLAS â€” clave para evitar superposici&oacute;n â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .tabla-dinamica {
       width: 100%;
       border-collapse: collapse;
@@ -1581,7 +1581,7 @@ function buildEstilos(parametros) {
       break-inside: avoid;
     }
 
-    /* ══ Tablas de órdenes/fórmula (anchos explícitos) ══════════════════ */
+    /* â•â• Tablas de &oacute;rdenes/f&oacute;rmula (anchos expl&iacute;citos) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     table.orden-table {
       width: 100%;
       border-collapse: collapse;
@@ -1601,7 +1601,7 @@ function buildEstilos(parametros) {
     }
     table.orden-table th { background: #f3f4f6; font-weight: bold; }
 
-    /* ══ Firma ═══════════════════════════════════════════════ */
+    /* â•â• Firma â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .firma-block {
       margin-top: 24px;
       page-break-inside: avoid;
@@ -1616,7 +1616,7 @@ function buildEstilos(parametros) {
       margin: 1px 0;
     }
 
-    /* ══ Pie de página ═══════════════════════════════════════════ */
+    /* â•â• Pie de p&aacute;gina â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     .footer {
       margin-top: 12px;
       text-align: right;
@@ -1628,13 +1628,13 @@ function buildEstilos(parametros) {
       break-inside: avoid;
     }
 
-    /* ══ @page: márgenes de impresión (refuerza lo que pasa Puppeteer) ══ */
+    /* â•â• @page: m&aacute;rgenes de impresi&oacute;n (refuerza lo que pasa Puppeteer) â•â• */
     @page {
       size: ${buildFormat(parametros)};
       margin: ${mt}mm ${mr}mm ${mb}mm ${ml}mm;
     }
 
-    /* ══ @media print: refuerza reglas solo cuando Chromium imprime ══════ */
+    /* â•â• @media print: refuerza reglas solo cuando Chromium imprime â•â•â•â•â•â• */
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .tabla-dinamica { page-break-inside: auto; }
@@ -1650,7 +1650,7 @@ function buildEstilos(parametros) {
  */
 function renderHtml(payload) {
   const estilos = buildEstilos(payload.parametros);
-  const plantillaNombre = (payload.plantilla.meta && (payload.plantilla.meta.NOMBRE || payload.plantilla.meta.IDENTIFICADOR)) || 'HISTORIA CLÍNICA';
+  const plantillaNombre = (payload.plantilla.meta && (payload.plantilla.meta.NOMBRE || payload.plantilla.meta.IDENTIFICADOR)) || 'HISTORIA CL&Iacute;NICA';
 
   const cuerpo = `
     <div style="padding: 0 12mm 0 6mm;">
@@ -1672,7 +1672,7 @@ function renderHtml(payload) {
       ${renderProfesionalInfo(payload)}
       ${renderOrdenesYFormulacion(payload)}
       ${renderFirma(payload)}
-      <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')} · Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
+      <div class="footer">Atenci&oacute;n: ${escapeHtml(payload.atencion.ID || '')} Â· Plantilla: ${escapeHtml((payload.plantilla.meta && payload.plantilla.meta.ID) || '')}</div>
     </div>
   `;
 
@@ -1761,7 +1761,7 @@ function renderHtmlOrdenPorTipo(payload, tituloDoc, tituloTabla, recordsets) {
       ${tablaHtml}
       
       ${renderFirma(payload)}
-      <div class="footer">Atención: ${escapeHtml(payload.atencion.ID || '')}</div>
+      <div class="footer">Atenci&oacute;n: ${escapeHtml(payload.atencion.ID || '')}</div>
     </div>
   `;
 
@@ -1807,7 +1807,7 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
     return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
   };
 
-  // ── Datos del paciente ─────────────────────────────────────────────────────
+  // â”€â”€ Datos del paciente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const apellidos = esc(cl(b3.APELLIDOS_PACIENTE || t['APELLIDOS_PACIENTE'] || ''));
   const nombres = esc(cl(b3.NOMBRES_PACIENTE || t['NOMBRES_PACIENTE'] || ''));
   const tipoId = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
@@ -1824,11 +1824,11 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
   const fechaReg = esc(fmtDT(b3.FECHA_REGISTRO || at.FECHA_REGISTRO));
   const fechaAten = esc(fmtDT(b3.FECHA_ATENCION || at.FECHA_ATENCION));
 
-  // ── Datos de la orden (primer renglón del primer recordset) ────────────────
-  // IMPORTANTE: las filas de formulación traen datos del encuentro (TIPO_USO, VIA_INGRESO, etc.)
+  // â”€â”€ Datos de la orden (primer rengl&oacute;n del primer recordset) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // IMPORTANTE: las filas de formulaci&oacute;n traen datos del encuentro (TIPO_USO, VIA_INGRESO, etc.)
   const allRows = (recordsets || []).flatMap(rs => rs || []);
   const pFila = allRows[0] || {};
-  // NUMERO_ORDEN: usar el número público de la orden (NUMERO_ORDEN de Op2), no el ID interno
+  // NUMERO_ORDEN: usar el n&uacute;mero p&uacute;blico de la orden (NUMERO_ORDEN de Op2), no el ID interno
   const ordenNum = esc(cl(String(dO.NUMERO_ORDEN || pFila.NUMERO_ORDEN || pFila.ID_ORDEN || '')));
   const ordenTipo = esc(cl(pFila.NOMBRE_PLANTILLA || 'Orden Medicamentos'));
   const ordenCodigo = esc(cl(String(pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
@@ -1841,12 +1841,12 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
   const vigHasta = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA || pFila.FECHA_FIN_VIGENCIA || pFila.FECHA_VENCIMIENTO);
   const vigencia = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
 
-  // Mappings numéricos del Op2
+  // Mappings num&eacute;ricos del Op2
   const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalizaci\u00f3n', 3: 'Remitido' };
   const AMBITO_MAP = { 1: 'Ambulatorio', 2: 'Hospitalario', 3: 'Domiciliario', 4: 'Urgencias' };
   const TIPUSO_MAP = { 0: 'Externo', 1: 'Externo', 2: 'Interno' };
 
-  // VIA_INGRESO: Op2 usa ID_ORIGEN_VIA_INGRESO (numérico)
+  // VIA_INGRESO: Op2 usa ID_ORIGEN_VIA_INGRESO (num&eacute;rico)
   const viaN = dO.ID_ORIGEN_VIA_INGRESO != null ? dO.ID_ORIGEN_VIA_INGRESO
     : (dO.VIA_INGRESO ?? pFila.VIA_INGRESO ?? b3.VIA_INGRESO ?? at.VIA_INGRESO);
   const viaIngreso = esc(VIA_MAP[viaN] ?? cl(dO.NOMBRE_VIA_INGRESO || pFila.NOMBRE_VIA_INGRESO || b3.NOMBRE_VIA_INGRESO || t['VIA_INGRESO'] || ''));
@@ -1857,21 +1857,21 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
   // CATEGORIA: Op2 llama al campo CATEGORIA_CONVENIO
   const categoria = esc(cl(dO.CATEGORIA_CONVENIO || dO.CATEGORIA || pFila.CATEGORIA || b3.CATEGORIA || t['CATEGORIA'] || ''));
 
-  // AMBITO: Op2 devuelve ID_AMBITO numérico
+  // AMBITO: Op2 devuelve ID_AMBITO num&eacute;rico
   const ambitoN = dO.ID_AMBITO;
   const ambito = esc(ambitoN != null ? (AMBITO_MAP[ambitoN] || String(ambitoN))
     : cl(dO.AMBITO_ATENCION || dO.AMBITO || pFila.AMBITO || b3.AMBITO_ATENCION || t['AMBITO'] || ''));
 
-  // TIPO_USO: Op2 devuelve TIPO_USO numérico (1 = Externo)
+  // TIPO_USO: Op2 devuelve TIPO_USO num&eacute;rico (1 = Externo)
   const tipoUsoN = dO.TIPO_USO;
   const tipoUso = esc(tipoUsoN != null ? (TIPUSO_MAP[tipoUsoN] || String(tipoUsoN))
     : cl(pFila.TIPO_USO || b3.TIPO_USO || t['TIPO_USO'] || ''));
 
-  // ── Estilos de celda de la tabla ──────────────────────────────────────────
+  // â”€â”€ Estilos de celda de la tabla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const thS = 'padding:3px 5px; border:1px solid #000; background:#d9d9d9; font-weight:bold; font-size:9.5px; line-height:1.3; white-space:nowrap;';
   const tdS = 'padding:3px 5px; border:1px solid #000; font-size:9.5px; line-height:1.3; word-break:break-word;';
 
-  // ── Encabezado de orden ───────────────────────────────────────────────────
+  // â”€â”€ Encabezado de orden â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ordenHeaderHtml = `
     <div style="font-size:9.5px; margin-top:6px; line-height:1.5;">
       <b>Orden N&ordm;: ${ordenNum}</b>
@@ -1880,7 +1880,7 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
       &nbsp;&nbsp; Fecha y hora: ${ordenFecha}
     </div>`;
 
-  // ── Tabla del paciente 4 columnas (estilo Panacea) ─────────────────────────
+  // â”€â”€ Tabla del paciente 4 columnas (estilo Panacea) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const tablaPaciente = `
     <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
       <colgroup>
@@ -1928,8 +1928,8 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
       </tr>
     </table>`;
 
-  // ── Diagnósticos compactos — formato Panacea ──────────────────────────────
-  // Ref: "DiagnósticosPrincipal Ingreso: D649  Tipo principal: Confirmado nuevo"
+  // â”€â”€ Diagn&oacute;sticos compactos â€” formato Panacea â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ref: "Diagn&oacute;sticosPrincipal Ingreso: D649  Tipo principal: Confirmado nuevo"
   //       "Relacionado 1 Ingreso: K922"
   const dxList = (payload.clinico && payload.clinico.diagnosticos) || [];
   let dxHtml = '';
@@ -1959,11 +1959,11 @@ function renderHtmlFormula(payload, recordsets, datosOrden = null, op2Rows = [])
       + `</div>`;
   }
 
-  // ── Tabla de medicamentos (sin título) — pasar op2Rows para DISTANCIA/dosis ──
+  // â”€â”€ Tabla de medicamentos (sin t&iacute;tulo) â€” pasar op2Rows para DISTANCIA/dosis â”€â”€
   const tablaHtml = renderFormulaMedicaPanacea(recordsets, [], { showTitle: false }, op2Rows);
   if (!tablaHtml) return null;
 
-  // ── Posfechado / Observaciones ─────────────────────────────────────────────
+  // â”€â”€ Posfechado / Observaciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const piePdf = `
     <div style="font-size:9.5px; margin-top:6px; line-height:1.5;">
       <div>Posfechado: ${posfechado}</div>
@@ -2000,7 +2000,7 @@ ${html}
 
 /**
  * Genera el HTML completo para un PDF de Orden de Incapacidad.
- * Formato Panacea: bloque de texto "ORDEN DE INCAPACIDAD:" + descripción — sin tabla.
+ * Formato Panacea: bloque de texto "ORDEN DE INCAPACIDAD:" + descripci&oacute;n â€” sin tabla.
  */
 function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
   const estilos = buildEstilos(payload.parametros);
@@ -2016,7 +2016,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
   };
 
   const GENERO_MAP = { 1: 'Masculino', 2: 'Femenino', 3: 'Indeterminado' };
-  const VIA_INGRESO_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
+  const VIA_INGRESO_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalizaci&oacute;n', 3: 'Remitido' };
 
   // GUIDs fijos del formato de incapacidad (estructura op=1)
   const GUID_AMBITO = '2E70F5DD-3E27-4738-A7C4-208A5B098B43';
@@ -2039,7 +2039,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
       // #endregion
 
       if (!datos) {
-        // ─── Fallback: solo línea descriptiva ──────────────────────────────────
+        // â”€â”€â”€ Fallback: solo l&iacute;nea descriptiva â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let desc = cleanStr(f.DESCRIPCION_PROCEDIMIENTO || f.PRUEBA || f.NOMBRE_SERVICIO || '');
         if (!desc && f.NOMBRE_PLANTILLA) {
           const partes = [];
@@ -2060,7 +2060,7 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
         continue;
       }
 
-      // ─── Render con datos completos de OPERACION=0 ─────────────────────────
+      // â”€â”€â”€ Render con datos completos de OPERACION=0 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const listaRows = idOrden && datosDinamicos.ordenesListaPorId
         ? (datosDinamicos.ordenesListaPorId.get(idOrden) || [])
         : [];
@@ -2075,11 +2075,11 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
       const origenInc = cleanStr(valorListaPorGuid.get(GUID_ORIGEN) || '');
       const modalidad = cleanStr(valorListaPorGuid.get(GUID_MODALIDAD) || '');
 
-      // Título de tipo de orden en título case
+      // T&iacute;tulo de tipo de orden en t&iacute;tulo case
       const tipoOrdenNombre = cleanStr(f.NOMBRE_PLANTILLA || 'INCAPACIDADES O LICENCIAS')
         .toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
-      // Género y vía de ingreso
+      // G&eacute;nero y v&iacute;a de ingreso
       const generoTexto = GENERO_MAP[datos.GENERO_PACIENTE] || '';
       const viaIngreso = VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO] != null
         ? VIA_INGRESO_MAP[datos.ID_ORIGEN_VIA_INGRESO]
@@ -2090,14 +2090,14 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
       const vf = formatSoloFecha(datos.FECHA_TERMINACION);
       const vigencia = vi && vf ? `${vi} - ${vf}` : (vi || vf || '');
 
-      // Diagnósticos compactos desde payload general
+      // Diagn&oacute;sticos compactos desde payload general
       const dxList = (payload.clinico && payload.clinico.diagnosticos) || [];
       const dxPpal = dxList.find(d => {
         const t = String(d.DESCRIPCION_TIPO_DX_PPAL || d.TIPO_DX || '').toUpperCase();
         return d.ES_PRINCIPAL === 1 || d.PRINCIPAL === 1 || t.includes('INGRESO') || t.includes('PRINCIPAL');
       }) || dxList[0];
 
-      // Líneas multi-campo igual que Panacea
+      // L&iacute;neas multi-campo igual que Panacea
       const causaLine = [
         datos.CAUSA_EXTERNA ? `Causa externa: ${esc(cleanStr(datos.CAUSA_EXTERNA))}` : '',
         datos.OCUPACION ? `Ocupaci\u00f3n: ${esc(cleanStr(datos.OCUPACION))}` : 'Ocupaci\u00f3n:',
@@ -2115,8 +2115,8 @@ function renderHtmlIncapacidades(payload, recordsets, datosDinamicos = {}) {
         modalidad ? `Modalidad Tec. Salud: ${esc(modalidad)}` : '',
       ].filter(Boolean).join(' &nbsp; ');
 
-      // Tabla de identificación del paciente específica para incapacidad
-      // line-height:1.4 anula el line-height:0.1 del body (parámetros Panacea)
+      // Tabla de identificaci&oacute;n del paciente espec&iacute;fica para incapacidad
+      // line-height:1.4 anula el line-height:0.1 del body (par&aacute;metros Panacea)
       const tdS = 'border:1px solid #000; padding:3px 5px; vertical-align:top; font-size:9.5px; line-height:1.4; width:50%; word-wrap:break-word; word-break:break-word;';
       const lb = (label, val) => `<b>${label}:</b> ${esc(cleanStr(String(val ?? '')))}`;
       const tablaPaciente = `
@@ -2204,15 +2204,15 @@ ${html}
 }
 
 /**
- * Genera el HTML completo para un PDF de Orden de Imagenología.
- * Formato Panacea completo: encabezado de orden, tabla de paciente estilo fórmula,
- * diagnósticos, tabla de procedimientos con todas las columnas (área corporal,
+ * Genera el HTML completo para un PDF de Orden de Imagenolog&iacute;a.
+ * Formato Panacea completo: encabezado de orden, tabla de paciente estilo f&oacute;rmula,
+ * diagn&oacute;sticos, tabla de procedimientos con todas las columnas (&aacute;rea corporal,
  * lateralidad, estado, prioridad, tipo uso, comentario) y firma.
  *
- * @param {object} payload        – printPayload estándar del servicio
- * @param {Array}  recordsets     – filas de QRY_ORDENES_IMPRESION clasificadas como imagenología
- * @param {object} datosOrden     – primera fila de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=0
- * @param {Array}  op1Rows        – filas de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=1
+ * @param {object} payload        â€“ printPayload est&aacute;ndar del servicio
+ * @param {Array}  recordsets     â€“ filas de QRY_ORDENES_IMPRESION clasificadas como imagenolog&iacute;a
+ * @param {object} datosOrden     â€“ primera fila de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=0
+ * @param {Array}  op1Rows        â€“ filas de QRY_IMPRESION_ORDENES_FORMATOS OPERACION=1
  */
 function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1Rows = []) {
   const estilos = buildEstilos(payload.parametros);
@@ -2239,13 +2239,13 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
     return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
   };
 
-  // ── Datos del paciente ─────────────────────────────────────────────────────
+  // â”€â”€ Datos del paciente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const apellidos = esc(cl(b3.APELLIDOS_PACIENTE || t['APELLIDOS_PACIENTE'] || ''));
   const nombres = esc(cl(b3.NOMBRES_PACIENTE || t['NOMBRES_PACIENTE'] || ''));
   const tipoId = esc(cl(b3.CODIGO_TIPO_IDENTIFICACION || t['TIPO_IDENTIFICACION'] || ''));
   const numId = esc(cl(b3.NUMERO_IDENTIFICACION_PACIENTE || t['IDENTIFICACION_PACIENTE'] || ''));
   const fechaNac = esc(fmtD(b3.FECHA_NACIMIENTO_PACIENTE || t['FECHA_NACIMIENTO']));
-  const edad = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' Años' : '') || t['EDAD'] || ''));
+  const edad = esc(cl(b3.EDAD_COMPLETA || (b3.EDAD_PACIENTE ? String(b3.EDAD_PACIENTE) + ' A&ntilde;os' : '') || t['EDAD'] || ''));
   const genN = b3.GENERO_PACIENTE;
   const genero = esc(genN === 1 ? 'Masculino' : genN === 2 ? 'Femenino' : cl(b3.SEXO_PACIENTE || t['SEXO'] || ''));
   const ocupacion = esc(cl(b3.OCUPACION || t['OCUPACION'] || ''));
@@ -2256,16 +2256,16 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
   const fechaReg = esc(fmtDT(b3.FECHA_REGISTRO || at.FECHA_REGISTRO));
   const fechaAten = esc(fmtDT(b3.FECHA_ATENCION || at.FECHA_ATENCION));
 
-  // ── Datos de la orden ─────────────────────────────────────────────────────
+  // â”€â”€ Datos de la orden â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const allRows = (recordsets || []).flatMap(rs => rs || []);
   const pFila = allRows[0] || {};
   const ordenNum = esc(cl(String(dO.NUMERO_ORDEN || pFila.NUMERO_ORDEN || pFila.ID_ORDEN || '')));
-  const ordenTipo = esc(cl(dO.NOMBRE_PLANTILLA || pFila.NOMBRE_PLANTILLA || 'Orden Imagenología'));
+  const ordenTipo = esc(cl(dO.NOMBRE_PLANTILLA || pFila.NOMBRE_PLANTILLA || 'Orden Imagenolog&iacute;a'));
   const ordenCod = esc(cl(String(dO.ID_TIPO_PLANTILLA || pFila.ID_TIPO_PLANTILLA || pFila.ID_TIPO_ORDEN || '')));
   const ordenFecha = esc(fmtDT(dO.FECHA_EXPEDICION || pFila.FECHA_EXPEDICION));
   const observaciones = esc(cl(dO.OBSERVACIONES || pFila.OBSERVACIONES || ''));
 
-  const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalización', 3: 'Remitido' };
+  const VIA_MAP = { 0: 'Consulta externa', 1: 'Urgencias', 2: 'Hospitalizaci&oacute;n', 3: 'Remitido' };
   const viaN = dO.ID_ORIGEN_VIA_INGRESO;
   const viaIngreso = esc(VIA_MAP[viaN] != null ? VIA_MAP[viaN] : cl(dO.NOMBRE_VIA_INGRESO || pFila.NOMBRE_VIA_INGRESO || b3.NOMBRE_VIA_INGRESO || t['VIA_INGRESO'] || ''));
   const tipoUsr = esc(cl(dO.TIPO_USUARIO || pFila.TIPO_USUARIO || b3.TIPO_USUARIO || at.TIPO_USUARIO || t['TIPO_USUARIO'] || ''));
@@ -2273,11 +2273,11 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
   const vigHasta = fmtD(dO.FECHA_TERMINACION || dO.VIGENCIA_HASTA || pFila.VIGENCIA_HASTA);
   const vigencia = esc([vigDesde, vigHasta].filter(Boolean).join(' - '));
 
-  // ── Estilos de celda ──────────────────────────────────────────────────────
+  // â”€â”€ Estilos de celda â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const thS = 'padding:3px 5px; border:1px solid #000; background:#d9d9d9; font-weight:bold; font-size:9.5px; line-height:1.3; white-space:nowrap;';
   const tdS = 'padding:3px 5px; border:1px solid #000; font-size:9.5px; line-height:1.3; word-break:break-word;';
 
-  // ── Encabezado de orden ───────────────────────────────────────────────────
+  // â”€â”€ Encabezado de orden â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ordenHeaderHtml = `
     <div style="font-size:9.5px; margin-top:6px; line-height:1.5;">
       <b>Orden N&ordm;: ${ordenNum}</b>
@@ -2286,7 +2286,7 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
       &nbsp;&nbsp; Fecha y hora: ${ordenFecha}
     </div>`;
 
-  // ── Tabla del paciente ────────────────────────────────────────────────────
+  // â”€â”€ Tabla del paciente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const tablaPaciente = `
     <table style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:4px;">
       <colgroup>
@@ -2322,7 +2322,7 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
       </tr>
     </table>`;
 
-  // ── Diagnósticos compactos ────────────────────────────────────────────────
+  // â”€â”€ Diagn&oacute;sticos compactos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const dxList = (payload.clinico && payload.clinico.diagnosticos) || [];
   let dxHtml = '';
   if (dxList.length) {
@@ -2352,8 +2352,8 @@ function renderHtmlOrdenImagenologia(payload, recordsets, datosOrden = null, op1
     </div>`;
   }
 
-  // ── Tabla de procedimientos ───────────────────────────────────────────────
-  // Usar las filas de OPERACION=1 si están disponibles (tienen AREA_CORPORAL,
+  // â”€â”€ Tabla de procedimientos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Usar las filas de OPERACION=1 si est&aacute;n disponibles (tienen AREA_CORPORAL,
   // LATERALIDAD, ESTADO, PRIORIDAD, TIPO_USO, COMENTARIO); si no, usar las de ordenes.
   const rowsParaTabla = op1Rows && op1Rows.length ? [op1Rows] : recordsets;
   const tablaHtml = renderOrdenesPanacea(rowsParaTabla);
@@ -2386,4 +2386,10 @@ ${html}
   return { html: body, parametros: (payload.parametros && payload.parametros[0]) || {} };
 }
 
-module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia };
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  RENDER AUTORIZACI&Oacute;N Â· delegado al m&oacute;dulo especializado
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+const { renderHtmlAutorizacion, CSSAutorizacion } = require('./plantilla.render.autorizacion');
+
+module.exports = { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia, renderHtmlAutorizacion, CSSAutorizacion };
+

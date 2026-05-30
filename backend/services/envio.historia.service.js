@@ -16,7 +16,8 @@
 
 const { portalPool, sql } = require('../config/db');
 const HistoriaPrintService = require('./historia.print.service');
-const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia } = require('./plantilla.render');
+const { renderHtml, clasificarTodasLasOrdenes, renderHtmlOrdenPorTipo, renderHtmlFormula, renderHtmlIncapacidades, renderHtmlOrdenImagenologia, renderHtmlAutorizacion } = require('./plantilla.render');
+const AutorizacionSP = require('./panacea/autorizacionSP');
 const PdfService = require('./pdf.service');
 const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
@@ -133,12 +134,20 @@ async function enviarHistoria({
   const paciente = await buscarPaciente(tipo_documento, numero_documento);
 
   if (!paciente) {
-    return { ok: false, error: `Paciente ${tipo_documento} ${numero_documento} no registrado en el portal.` };
+    return { ok: false, error: `El paciente con el número de documento ${numero_documento} no está registrado en el sistema.` };
   }
 
   if (!paciente.email) {
     return { ok: false, error: `El paciente ${paciente.NOMBRE_COMPLETO} no tiene correo registrado.` };
   }
+
+  // Corregir posibles errores tipográficos en el correo (muy común en registros manuales)
+  paciente.email = paciente.email.trim()
+    .replace(/@gmai\.com$/i, '@gmail.com')
+    .replace(/@gmail\.con$/i, '@gmail.com')
+    .replace(/@gmil\.com$/i, '@gmail.com')
+    .replace(/@hotmai\.com$/i, '@hotmail.com')
+    .replace(/@hotmail\.con$/i, '@hotmail.com');
 
   // ── Paso 2 · Resolver Atención ──────────────────────────────────────────
   if (!idAtencion) {
@@ -321,6 +330,108 @@ async function enviarHistoria({
         const pdfCifradoForm = await PdfEncrypt.cifrarPdf(pdfBufferForm, paciente.numero_documento);
         adjuntos.push({ filename: `Formula_Medica_${nombreBase}.pdf`, content: pdfCifradoForm });
       }
+    }
+
+    // 5. Autorizaciones de servicios de salud
+    // Solo trae "Autorización directa" (ID_ORIGEN_AUTORIZACION=6), excluyendo Órdenes.
+    // Todas las autorizaciones del día se consolidan en UN SOLO PDF.
+    // Este paso es completamente opcional: si falla, el envío continúa.
+    try {
+      const idPaciente    = payload.atencion?.ID_PACIENTE;
+      const fechaAtencion = payload.atencion?.FECHA_ATENCION
+        || payload.atencion?.basico_op5?.FECHA_ATENCION
+        || payload.atencion?.basico_op3?.FECHA_ATENCION;
+
+      if (idPaciente && fechaAtencion) {
+        console.log(`🔍 [Autorizaciones] Buscando autorizaciones directas paciente ${idPaciente} fecha ${fechaAtencion}...`);
+        const autorizaciones = await AutorizacionSP.getAutorizacionesPorPacienteYFecha(idPaciente, fechaAtencion);
+
+        if (autorizaciones && autorizaciones.length > 0) {
+          console.log(`📋 [Autorizaciones] Encontradas ${autorizaciones.length} autorización(es) directa(s).`);
+
+          // Obtener datos de cada autorización en paralelo (máximo 3 a la vez)
+          const limitAutor = pLimit(3);
+          const bloques = await Promise.all(autorizaciones.map(autor => limitAutor(async () => {
+            const idAutor = Number(autor.ID);
+            try {
+              const [autorBase, autorMin, autorDx, autorAten] = await Promise.all([
+                AutorizacionSP.getAutorizacion(idAutor),
+                AutorizacionSP.getRptSolicitudMin(idAutor),
+                AutorizacionSP.getRptSolicitudDx(idAutor),
+                AutorizacionSP.getRptSolicitudAtencion(idAutor),
+              ]);
+              return { idAutor, autorBase, autorMin, autorDx, autorAten };
+            } catch (errAutor) {
+              console.warn(`⚠️  [Autorizaciones] No se pudo obtener datos de autorización ${idAutor}: ${errAutor.message}`);
+              return null;
+            }
+          })));
+
+          // Filtrar bloques fallidos
+          const bloquesValidos = bloques.filter(Boolean);
+
+          if (bloquesValidos.length > 0) {
+            // UNIFICAR todos los datos en UNA sola autorización
+            const primerBloque = bloquesValidos[0];
+            
+            // Combinar diagnósticos (sin duplicar códigos)
+            const allDx = [];
+            bloquesValidos.forEach(b => {
+              b.autorDx.forEach(dx => {
+                const cod = dx.CODIGO_CIE || dx.CODIGO || dx.CODIGOCIE;
+                if (!allDx.find(x => (x.CODIGO_CIE || x.CODIGO || x.CODIGOCIE) === cod)) {
+                  allDx.push(dx);
+                }
+              });
+            });
+
+            // Combinar atenciones (servicios) evitando duplicados
+            let allAten = [];
+            bloquesValidos.forEach(b => {
+              const servicios = b.autorAten || [];
+              servicios.forEach(serv => {
+                const cod = serv.CODIGO_SERVICIO || serv.CODIGOSERVICIO || '';
+                const desc = serv.DESCRIPCION_SERVICIO || serv.DESCRIPCIONSERVICIO || serv.NOMBRE_SERVICIO || serv.NOMBRESERVICIO || '';
+                
+                // Buscar si ya existe el mismo servicio
+                const existe = allAten.find(x => {
+                  const xCod = x.CODIGO_SERVICIO || x.CODIGOSERVICIO || '';
+                  const xDesc = x.DESCRIPCION_SERVICIO || x.DESCRIPCIONSERVICIO || x.NOMBRE_SERVICIO || x.NOMBRESERVICIO || '';
+                  return xCod === cod && xDesc === desc;
+                });
+
+                if (!existe) {
+                  allAten.push(serv);
+                }
+              });
+            });
+
+            const autorDataUnificada = {
+              autorizacion: primerBloque.autorBase,
+              min:          primerBloque.autorMin,
+              dx:           allDx,
+              atencion:     allAten,
+              pacienteEmail: paciente.email
+            };
+
+            // Renderizar UN SOLO HTML con todos los servicios
+            const resultado = renderHtmlAutorizacion(payload, autorDataUnificada);
+            
+            if (resultado) {
+              const parametros = (payload.parametros && payload.parametros[0]) || {};
+              const pdfBufCombinado = await PdfService.generarPdfBuffer({ html: resultado.html, parametros });
+              const pdfCifCombinado = await PdfEncrypt.cifrarPdf(pdfBufCombinado, paciente.numero_documento);
+              adjuntos.push({ filename: `Autorizaciones_${nombreBase}.pdf`, content: pdfCifCombinado });
+              console.log(`✅ [Autorizaciones] PDF único generado agrupando ${bloquesValidos.length} autorización(es) y ${allAten.length} servicio(s).`);
+            }
+          }
+        } else {
+          console.log(`ℹ️  [Autorizaciones] No se encontraron autorizaciones directas para la fecha de la atención.`);
+        }
+      }
+    } catch (errAutorizaciones) {
+      // Error no crítico: el envío continúa aunque falle el módulo de autorizaciones
+      console.warn(`⚠️  [Autorizaciones] Error al buscar autorizaciones (no crítico): ${errAutorizaciones.message}`);
     }
   } catch (err) {
     const msg = `Error generando/cifrando PDF: ${err.message}`;
