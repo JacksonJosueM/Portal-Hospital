@@ -298,7 +298,6 @@ function getValor(nodo, payload) {
         const val = pickValor(recs);
         return val != null ? escapeHtml(val) : '';
       }
-      return null;
     }
   }
 
@@ -306,53 +305,61 @@ function getValor(nodo, payload) {
   switch (efectivo) {
     case TIPO_FIJO.DECIMAL: {
       const recs = valores.decimal.get(guid);
-      return recs && recs.length ? formatDecimal(pickValor(recs), decimales) : null;
+      if (recs && recs.length) return formatDecimal(pickValor(recs), decimales);
+      break;
     }
     case TIPO_FIJO.ENTERO: {
       const recs = valores.enteros.get(guid);
-      const v = pickValor(recs);
-      return v == null ? null : escapeHtml(parseInt(v, 10));
+      if (recs && recs.length) {
+        const v = pickValor(recs);
+        return v == null ? null : escapeHtml(parseInt(v, 10));
+      }
+      break;
     }
     case TIPO_FIJO.SELECCION:
     case TIPO_FIJO.LISTA: {
       const recs = valores.lista.get(guid) || [];
-      if (!recs.length) return null;
-      return recs
-        .map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? r.DESCRIPCION ?? ''))
-        .filter(Boolean)
-        .join(', ');
+      if (recs.length) {
+        return recs
+          .map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? r.DESCRIPCION ?? ''))
+          .filter(Boolean)
+          .join(', ');
+      }
+      break;
     }
     case TIPO_FIJO.TABLA: {
       const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
       const recs = valores.tabla.get(guid) || [];
-      return recs.length ? renderTabla(datoMeta, recs) : null;
+      if (recs.length) return renderTabla(datoMeta, recs);
+      break;
     }
     case TIPO_FIJO.IMAGEN: {
       const datoMeta = nodo.ID_ESTRUCTURA ? payload.datos.get(nodo.ID_ESTRUCTURA) : null;
       const img = datoMeta && datoMeta.imagenes && datoMeta.imagenes[0];
-      if (!img) return null;
-      const url = img.IMAGEN
-        ? bytesToDataUrl(img.IMAGEN, img.TIPO_MIME || 'image/png')
-        : (img.RUTA || '');
-      return `<img src="${url}" alt="${escapeHtml(img.NOMBRE || '')}" style="max-width:100%;">`;
-    }
-    default: {
-      // Fallback: probar todos los buckets
-      for (const bucket of ['texto', 'decimal', 'enteros', 'fecha', 'lista', 'laboratorioTexto']) {
-        const recs = valores[bucket].get(guid);
-        if (recs && recs.length) {
-          if (bucket === 'fecha') return formatFecha(pickValor(recs));
-          if (bucket === 'decimal') return formatDecimal(pickValor(recs), decimales);
-          if (bucket === 'lista') {
-            return recs.map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? '')).filter(Boolean).join(', ');
-          }
-          const val = pickValor(recs);
-          return val != null ? escapeHtml(val) : '';
-        }
+      if (img) {
+        const url = img.IMAGEN
+          ? bytesToDataUrl(img.IMAGEN, img.TIPO_MIME || 'image/png')
+          : (img.RUTA || '');
+        return `<img src="${url}" alt="${escapeHtml(img.NOMBRE || '')}" style="max-width:100%;">`;
       }
-      return null;
+      break;
     }
   }
+
+  // Fallback: probar todos los buckets
+  for (const bucket of ['texto', 'decimal', 'enteros', 'fecha', 'lista', 'laboratorioTexto']) {
+    const recs = valores[bucket].get(guid);
+    if (recs && recs.length) {
+      if (bucket === 'fecha') return formatFecha(pickValor(recs));
+      if (bucket === 'decimal') return formatDecimal(pickValor(recs), decimales);
+      if (bucket === 'lista') {
+        return recs.map(r => escapeHtml(r.VALOR_LISTA ?? r.VALOR ?? '')).filter(Boolean).join(', ');
+      }
+      const val = pickValor(recs);
+      return val != null ? escapeHtml(val) : '';
+    }
+  }
+  return null;
 }
 
 function pickValor(records) {

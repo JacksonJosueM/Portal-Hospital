@@ -207,7 +207,7 @@ async function imprimirAtencion(idAtencion, opts = {}) {
       else if (valoresPorEstructura.enteros.has(guid)) val = valoresPorEstructura.enteros.get(guid)[0].VALOR_ENTEROS;
       else if (valoresPorEstructura.decimal.has(guid)) val = valoresPorEstructura.decimal.get(guid)[0].VALOR_DECIMAL;
       else if (valoresPorEstructura.fecha.has(guid)) val = valoresPorEstructura.fecha.get(guid)[0].VALOR_FECHA;
-      else if (valoresPorEstructura.lista.has(guid)) val = valoresPorEstructura.lista.get(guid)[0].VALOR_TEXTO;
+      else if (valoresPorEstructura.lista.has(guid)) val = valoresPorEstructura.lista.get(guid)[0].VALOR_LISTA ?? valoresPorEstructura.lista.get(guid)[0].VALOR_TEXTO ?? valoresPorEstructura.lista.get(guid)[0].VALOR;
       else if (valoresPorEstructura.laboratorioTexto.has(guid)) val = valoresPorEstructura.laboratorioTexto.get(guid)[0].VALOR_TEXTO ?? valoresPorEstructura.laboratorioTexto.get(guid)[0].VALOR;
       
       if (val != null && val !== '') {
