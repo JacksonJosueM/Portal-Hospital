@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Módulo de Archivo y Correspondencia — Envío de Historias Clínicas" />
+  <title>Módulo de Archivo · Hospital San Juan de Dios</title>
+
+  <style>
+    /* ══════════════════════════════════════════════════
+       TOKENS & RESET
+    ══════════════════════════════════════════════════ */
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1c2333;
+      --border:    rgba(255,255,255,0.08);
+      --accent:    #2f81f7;
+      --accent-hover: #388bfd;
+      --accent-dim: rgba(47,129,247,0.12);
+      --success:   #3fb950;
+      --success-dim: rgba(63,185,80,0.12);
+      --warning:   #d29922;
+      --warning-dim: rgba(210,153,34,0.12);
+      --danger:    #f85149;
+      --danger-dim: rgba(248,81,73,0.12);
+      --text:      #e6edf3;
+      --text-muted: #7d8590;
+      --text-dim:  #30363d;
+      --radius:    12px;
+      --radius-sm: 8px;
+      --shadow:    0 8px 32px rgba(0,0,0,0.4);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+      --trans:     0.2s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ══════════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════════ */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-logo {
+      width: 36px; height: 36px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .header-logo img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    .header-logo-fallback {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #2f81f7, #1a56b0);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      flex: 1;
+    }
+    .header-title h1 {
+      font-size: 15px; font-weight: 600;
+      color: var(--text);
+    }
+    .header-title p {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .header-badge {
+      padding: 4px 10px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(47,129,247,0.25);
+      border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+    }
+
+    /* ══════════════════════════════════════════════════
+       MAIN LAYOUT
+    ══════════════════════════════════════════════════ */
+    .app-main {
+      flex: 1;
+      max-width: 780px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ══════════════════════════════════════════════════
+       STEP WIZARD HEADER
+    ══════════════════════════════════════════════════ */
+    .wizard-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 8px;
+    }
+    .wizard-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      position: relative;
+    }
+    .wizard-step:not(:last-child)::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin: 0 8px;
+      transition: background var(--trans);
+    }
+    .wizard-step.done:not(:last-child)::after {
+      background: var(--success);
+    }
+    .step-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      border: 2px solid var(--border);
+      color: var(--text-muted);
+      background: var(--surface);
+      flex-shrink: 0;
+      transition: all var(--trans);
+    }
+    .wizard-step.active .step-dot {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(47,129,247,0.1);
+    }
+    .wizard-step.done .step-dot {
+      border-color: var(--success);
+      background: var(--success-dim);
+      color: var(--success);
+    }
+    .step-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      transition: color var(--trans);
+    }
+    .wizard-step.active .step-label { color: var(--accent); font-weight: 600; }
+    .wizard-step.done  .step-label  { color: var(--success); }
+
+    /* ══════════════════════════════════════════════════
+       CARDS / PANELS
+    ══════════════════════════════════════════════════ */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      animation: slideIn .25s var(--trans) both;
+    }
+
+    @keyframes slideIn {
+      from { opacity:0; transform: translateY(12px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-icon {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .card-icon.blue   { background: var(--accent-dim); }
+    .card-icon.green  { background: var(--success-dim); }
+    .card-icon.yellow { background: var(--warning-dim); }
+    .card-icon.red    { background: var(--danger-dim); }
+
+    .card-header-text h2 {
+      font-size: 14px; font-weight: 600; color: var(--text);
+    }
+    .card-header-text p {
+      font-size: 12px; color: var(--text-muted); margin-top: 1px;
+    }
+
+    .card-body { padding: 20px; }
+
+    /* ══════════════════════════════════════════════════
+       FORM ELEMENTS
+    ══════════════════════════════════════════════════ */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    .field label {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap .input-icon {
+      position: absolute;
+      left: 13px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 15px;
+      pointer-events: none;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    select {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color var(--trans), box-shadow var(--trans);
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input[type="text"].no-icon,
+    input[type="email"].no-icon,
+    select.no-icon {
+      padding-left: 14px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(47,129,247,0.15);
+    }
+    input::placeholder { color: var(--text-dim); }
+    input:disabled, select:disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d8590' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    .field-row .field { flex: 1; }
+
+    /* ══════════════════════════════════════════════════
+       BUTTONS
+    ══════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      cursor: pointer;
+      transition: all var(--trans);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(47,129,247,0.35); }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) { background: #46c55a; box-shadow: 0 4px 16px rgba(63,185,80,0.35); }
+
+    .btn-warning {
+      background: transparent;
+      color: var(--warning);
+      border: 1px solid rgba(210,153,34,0.4);
+    }
+    .btn-warning:hover:not(:disabled) {
+      background: var(--warning-dim);
+      border-color: var(--warning);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .btn-lg {
+      padding: 12px 28px;
+      font-size: 14px;
+    }
+
+    .btn-icon { font-size: 15px; }
+
+    /* ══════════════════════════════════════════════════
+       PATIENT INFO BOX
+    ══════════════════════════════════════════════════ */
+    .patient-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .patient-avatar {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2f81f7 0%, #1a56b0 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .patient-info { flex: 1; min-width: 0; }
+    .patient-name {
+      font-size: 15px; font-weight: 600;
+      color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .patient-meta {
+      display: flex; gap: 16px; margin-top: 4px; flex-wrap: wrap;
+    }
+    .patient-meta span {
+      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .patient-meta .has-email  { color: var(--success); }
+    .patient-meta .no-email   { color: var(--warning); }
+
+    /* ══════════════════════════════════════════════════
+       ATTENTION LIST
+    ══════════════════════════════════════════════════ */
+    .atencion-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--trans);
+      margin-bottom: 6px;
+    }
+    .atencion-option:hover {
+      background: var(--surface2);
+      border-color: rgba(47,129,247,0.3);
+    }
+    .atencion-option.selected {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .atencion-option input[type="radio"] { display: none; }
+    .radio-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--trans);
+    }
+    .atencion-option.selected .radio-dot {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+    .atencion-option.selected .radio-dot::after {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .atencion-info { flex: 1; }
+    .atencion-fecha {
+      font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .atencion-medico {
+      font-size: 12px; color: var(--text-muted); margin-top: 2px;
+    }
+    .atencion-id {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: monospace;
+    }
+
+    /* ══════════════════════════════════════════════════
+       TOGGLE / TABS
+    ══════════════════════════════════════════════════ */
+    .mode-tabs {
+      display: flex;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 7px 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all var(--trans);
+      user-select: none;
+    }
+    .mode-tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ══════════════════════════════════════════════════
+       ALERTS / TOASTS
+    ══════════════════════════════════════════════════ */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      line-height: 1.5;
+      animation: slideIn .2s var(--trans) both;
+    }
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .alert-content { flex: 1; }
+    .alert-title  { font-weight: 600; }
+    .alert-detail { color: inherit; opacity: 0.8; font-size: 12px; margin-top: 2px; }
+
+    .alert-success { background: var(--success-dim); border: 1px solid rgba(63,185,80,0.3); color: var(--success); }
+    .alert-error   { background: var(--danger-dim);  border: 1px solid rgba(248,81,73,0.3);  color: var(--danger);  }
+    .alert-info    { background: var(--accent-dim);  border: 1px solid rgba(47,129,247,0.3); color: var(--accent);  }
+    .alert-warning { background: var(--warning-dim); border: 1px solid rgba(210,153,34,0.3); color: var(--warning); }
+
+    /* ══════════════════════════════════════════════════
+       SEPARATOR
+    ══════════════════════════════════════════════════ */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SPINNER
+    ══════════════════════════════════════════════════ */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ══════════════════════════════════════════════════
+       EMPTY STATE
+    ══════════════════════════════════════════════════ */
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .es-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+    .empty-state p { font-size: 13px; }
+
+    /* ══════════════════════════════════════════════════
+       CONFIRM ROW (paso 4)
+    ══════════════════════════════════════════════════ */
+    .confirm-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .confirm-row .cr-label {
+      font-size: 11px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .confirm-row .cr-value {
+      font-size: 13px; font-weight: 600; color: var(--text);
+    }
+
+    /* ══════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════ */
+    .app-footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.5px;
+    }
+
+    /* ══════════════════════════════════════════════════
+       UTILITY
+    ══════════════════════════════════════════════════ */
+    .hidden { display: none !important; }
+    .mt-12  { margin-top: 12px; }
+    .mt-16  { margin-top: 16px; }
+    .flex-end { display: flex; justify-content: flex-end; gap: 10px; }
+    .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
+
+    /* ── Scrollable list ── */
+    .atencion-list {
+      max-height: 260px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .atencion-list::-webkit-scrollbar { width: 4px; }
+    .atencion-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-logo" id="logoWrap">
+      <img src="../templates/Logo.png" alt="Hospital" onerror="this.parentElement.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
+    </div>
+    <div class="header-logo-fallback" id="logoFallback" style="display:none;">H</div>
+    <div class="header-title">
+      <h1>Módulo de Archivo y Correspondencia</h1>
+      <p>Envío de historias clínicas · Hospital San Juan de Dios</p>
+    </div>
+    <div class="header-badge">🗂 Archivo</div>
+  </header>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- Wizard steps -->
+    <div class="wizard-steps">
+      <div class="wizard-step active" id="ws1">
+        <div class="step-dot">1</div>
+        <span class="step-label">Paciente</span>
+      </div>
+      <div class="wizard-step" id="ws2">
+        <div class="step-dot">2</div>
+        <span class="step-label">Correo</span>
+      </div>
+      <div class="wizard-step" id="ws3">
+        <div class="step-dot">3</div>
+        <span class="step-label">Atención</span>
+      </div>
+      <div class="wizard-step" id="ws4">
+        <div class="step-dot">4</div>
+        <span class="step-label">Enviar</span>
+      </div>
+    </div>
+
+    <!-- Toast global -->
+    <div id="globalToast" class="hidden"></div>
+
+    <!-- ── Paso 1: Buscar paciente ──────────────────── -->
+    <div class="card" id="step1">
+      <div class="card-header">
+        <div class="card-icon blue">🔍</div>
+        <div class="card-header-text">
+          <h2>Buscar Paciente</h2>
+          <p>Ingrese el número de documento del paciente</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field">
+            <label for="numDoc">Número de documento</label>
+            <div class="input-wrap">
+              <span class="input-icon">👤</span>
+              <input type="text" id="numDoc" placeholder="Ej. 12345678" maxlength="20" autocomplete="off">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btnBuscar" onclick="buscarPaciente()">
+            <span class="btn-icon">🔍</span> Buscar
+          </button>
+        </div>
+
+        <!-- Resultado paciente -->
+        <div id="pacienteBox" class="mt-12 hidden">
+          <div class="patient-card">
+            <div class="patient-avatar" id="avatarLetra">P</div>
+            <div class="patient-info">
+              <div class="patient-name" id="pNombre">—</div>
+              <div class="patient-meta">
+                <span>📋 <span id="pDoc">—</span></span>
+                <span id="pEmailWrap" class="has-email">✉ <span id="pEmail">—</span></span>
+              </div>
+            </div>
+            <button class="btn btn-ghost" id="btnSiguiente1" onclick="irPaso2()">
+              Continuar →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Paso 2: Verificar correo ─────────────────── -->
+    <div class="card hidden" id="step2">
+      <div class="card-header">
+        <div class="card-icon yellow">✉️</div>
+        <div class="card-header-text">
+          <h2>Verificar Correo Electrónico</h2>
+          <p>Confirme o actualice el correo del paciente</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field">
+            <label for="emailEditable">Correo actual del paciente</label>
+            <div class="input-wrap">
+              <span class="input-icon">✉</span>
+              <input type="email" id="emailEditable" placeholder="correo@ejemplo.com" maxlength="200">
+            </div>
+          </div>
+          <button class="btn btn-warning" id="btnGuardarCorreo" onclick="guardarCorreo()">
+            💾 Guardar
+          </button>
+        </div>
+        <div id="toastCorreo" class="mt-12 hidden"></div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="irPaso1()">← Atrás</button>
+          <button class="btn btn-primary" id="btnSiguiente2" onclick="irPaso3()">
+            Continuar →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Paso 3: Seleccionar atención ─────────────── -->
+    <div class="card hidden" id="step3">
+      <div class="card-header">
+        <div class="card-icon blue">📅</div>
+        <div class="card-header-text">
+          <h2>Seleccionar Atención</h2>
+          <p>Elija la atención que desea enviar</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mode-tabs">
+          <div class="mode-tab active" id="tabLista" onclick="setModo('lista')">📋 Lista de atenciones</div>
+          <div class="mode-tab" id="tabId" onclick="setModo('id')">🔢 Ingresar ID</div>
+        </div>
+
+        <!-- Panel lista -->
+        <div id="panelLista">
+          <div id="atencionesLoading" class="empty-state">
+            <div class="es-icon">⏳</div>
+            <p>Cargando atenciones...</p>
+          </div>
+          <div id="atencionesLista" class="atencion-list hidden"></div>
+          <div id="atencionesVacias" class="empty-state hidden">
+            <div class="es-icon">📂</div>
+            <p>No se encontraron atenciones cerradas para este paciente.</p>
+          </div>
+        </div>
+
+        <!-- Panel ID manual -->
+        <div id="panelId" class="hidden">
+          <div class="field">
+            <label for="idManual">ID de la atención</label>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="text" id="idManual" placeholder="Ej. 359695" maxlength="20">
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="irPaso2()">← Atrás</button>
+          <button class="btn btn-primary" id="btnSiguiente3" onclick="irPaso4()">
+            Continuar →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Paso 4: Confirmar y enviar ───────────────── -->
+    <div class="card hidden" id="step4">
+      <div class="card-header">
+        <div class="card-icon green">✉️</div>
+        <div class="card-header-text">
+          <h2>Confirmar y Enviar</h2>
+          <p>Revise los datos antes de enviar</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="confirm-row">
+          <div>
+            <div class="cr-label">Paciente</div>
+            <div class="cr-value" id="cfNombre">—</div>
+          </div>
+        </div>
+        <div class="confirm-row">
+          <div>
+            <div class="cr-label">Correo destino</div>
+            <div class="cr-value" id="cfCorreo">—</div>
+          </div>
+        </div>
+        <div class="confirm-row">
+          <div>
+            <div class="cr-label">ID de atención</div>
+            <div class="cr-value" id="cfAtencion">—</div>
+          </div>
+        </div>
+
+        <div id="toastEnvio" class="mt-12 hidden"></div>
+
+        <div class="actions">
+          <button class="btn btn-ghost" id="btnAtras4" onclick="irPaso3()">← Atrás</button>
+          <button class="btn btn-success btn-lg" id="btnEnviar" onclick="enviarHistoria()">
+            <span class="btn-icon">🚀</span> Enviar historia
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    Hospital San Juan de Dios &nbsp;·&nbsp; Área de Archivo &nbsp;·&nbsp;
+    <span id="apiUrl">Conectando...</span>
+  </footer>
+
+<script>
+  /* ════════════════════════════════════════════════════════
+     CONFIGURACIÓN
+  ════════════════════════════════════════════════════════ */
+  var API = (function() {
+    var h = location.hostname;
+    var p = location.port ? ':' + location.port : '';
+    return 'http://' + h + p + '/archivo';
+  })();
+
+  document.getElementById('apiUrl').textContent = location.hostname + (location.port ? ':' + location.port : '');
+
+  /* ════════════════════════════════════════════════════════
+     ESTADO
+  ════════════════════════════════════════════════════════ */
+  var state = {
+    paciente:    null,  // { id_paciente, nombre, numero_documento, email }
+    emailUsado:  '',
+    idAtencion:  null,
+    modo:        'lista',  // 'lista' | 'id'
+  };
+
+  /* ════════════════════════════════════════════════════════
+     WIZARD NAVIGATION
+  ════════════════════════════════════════════════════════ */
+  function setActiveStep(n) {
+    for (var i = 1; i <= 4; i++) {
+      var ws  = document.getElementById('ws' + i);
+      var cls = ws.className.replace(/\s*(active|done)\s*/g, '').trim();
+      if (i < n)  ws.className = cls + ' done';
+      else if (i === n) ws.className = cls + ' active';
+      else ws.className = cls;
+    }
+  }
+
+  function showCards() {
+    // Detectar qué paso mostrar basado en el estado
+  }
+
+  function irPaso1() {
+    setActiveStep(1);
+    show('step1'); hide('step2'); hide('step3'); hide('step4');
+  }
+  function irPaso2() {
+    if (!state.paciente) return;
+    setActiveStep(2);
+    hide('step1'); show('step2'); hide('step3'); hide('step4');
+  }
+  function irPaso3() {
+    if (!state.paciente) return;
+    setActiveStep(3);
+    hide('step1'); hide('step2'); show('step3'); hide('step4');
+  }
+  function irPaso4() {
+    var idAten = obtenerIdAtencion();
+    if (!idAten) {
+      showAlert('globalToast', 'warning', '⚠️', 'Seleccione una atención', 'Debe elegir o ingresar el ID de la atención antes de continuar.');
+      return;
+    }
+    state.idAtencion = idAten;
+    state.emailUsado = document.getElementById('emailEditable').value.trim();
+
+    // Rellenar confirmación
+    document.getElementById('cfNombre').textContent  = state.paciente.nombre;
+    document.getElementById('cfCorreo').textContent  = state.emailUsado;
+    document.getElementById('cfAtencion').textContent = state.idAtencion;
+
+    setActiveStep(4);
+    hide('step1'); hide('step2'); hide('step3'); show('step4');
+    hideAlert('toastEnvio');
+    hideAlert('globalToast');
+  }
+
+  /* ════════════════════════════════════════════════════════
+     DOM HELPERS
+  ════════════════════════════════════════════════════════ */
+  function show(id) { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+  function showAlert(id, type, icon, title, detail) {
+    var el = document.getElementById(id);
+    el.className = 'alert alert-' + type;
+    el.innerHTML =
+      '<span class="alert-icon">' + icon + '</span>' +
+      '<div class="alert-content">' +
+        '<div class="alert-title">' + escHtml(title) + '</div>' +
+        (detail ? '<div class="alert-detail">' + escHtml(detail) + '</div>' : '') +
+      '</div>';
+    el.classList.remove('hidden');
+  }
+
+  function hideAlert(id) {
+    var el = document.getElementById(id);
+    el.className = 'hidden';
+    el.innerHTML = '';
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function setBtn(id, disabled, html) {
+    var b = document.getElementById(id);
+    b.disabled = disabled;
+    if (html !== undefined) b.innerHTML = html;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     HTTP
+  ════════════════════════════════════════════════════════ */
+  function httpGet(url) {
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.onload = function() { resolve({ status: xhr.status, text: xhr.responseText }); };
+      xhr.onerror = function() { reject(new Error('Error de red')); };
+      xhr.send();
+    });
+  }
+
+  function httpPost(url, body) {
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function() { resolve({ status: xhr.status, text: xhr.responseText }); };
+      xhr.onerror = function() { reject(new Error('Error de red')); };
+      xhr.send(JSON.stringify(body));
+    });
+  }
+
+  function httpPut(url, body) {
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function() { resolve({ status: xhr.status, text: xhr.responseText }); };
+      xhr.onerror = function() { reject(new Error('Error de red')); };
+      xhr.send(JSON.stringify(body));
+    });
+  }
+
+  function parseJson(text) {
+    try { return JSON.parse(text || '{}'); } catch(e) { return {}; }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     1. BUSCAR PACIENTE
+  ════════════════════════════════════════════════════════ */
+  function buscarPaciente() {
+    var numDoc = (document.getElementById('numDoc').value || '').trim();
+    if (!numDoc) {
+      showAlert('globalToast', 'warning', '⚠️', 'Campo requerido', 'Ingrese el número de documento.');
+      return;
+    }
+
+    setBtn('btnBuscar', true, '<span class="spinner"></span> Buscando...');
+    hide('pacienteBox');
+    hideAlert('globalToast');
+
+    httpGet(API + '/paciente/' + encodeURIComponent(numDoc))
+      .then(function(r) {
+        setBtn('btnBuscar', false, '<span class="btn-icon">🔍</span> Buscar');
+        var res = parseJson(r.text);
+        if (r.status >= 200 && r.status < 300 && res.ok) {
+          state.paciente = res.paciente;
+
+          // Actualizar card paciente
+          var inicial = (res.paciente.nombre || 'P').charAt(0).toUpperCase();
+          document.getElementById('avatarLetra').textContent = inicial;
+          document.getElementById('pNombre').textContent = res.paciente.nombre;
+          document.getElementById('pDoc').textContent    = res.paciente.numero_documento;
+
+          var emailSpan = document.getElementById('pEmail');
+          var emailWrap = document.getElementById('pEmailWrap');
+          if (res.paciente.email) {
+            emailSpan.textContent = res.paciente.email;
+            emailWrap.className = 'has-email';
+            emailWrap.innerHTML = '✉ <span id="pEmail">' + escHtml(res.paciente.email) + '</span>';
+          } else {
+            emailWrap.className = 'no-email';
+            emailWrap.innerHTML = '⚠ Sin correo registrado';
+          }
+
+          show('pacienteBox');
+          showAlert('globalToast', 'success', '✅', 'Paciente encontrado', res.paciente.nombre);
+        } else {
+          var msg = res.error || 'Paciente no encontrado en el sistema.';
+          showAlert('globalToast', 'error', '❌', 'No encontrado', msg);
+        }
+      })
+      .catch(function(e) {
+        setBtn('btnBuscar', false, '<span class="btn-icon">🔍</span> Buscar');
+        showAlert('globalToast', 'error', '❌', 'Error de conexión', 'No se pudo conectar al servidor. Verifique que el sistema esté activo.');
+      });
+  }
+
+  function irPaso2() {
+    if (!state.paciente) return;
+    // Pre-llenar correo editable
+    document.getElementById('emailEditable').value = state.paciente.email || '';
+    hideAlert('toastCorreo');
+    setActiveStep(2);
+    hide('step1'); show('step2'); hide('step3'); hide('step4');
+    hideAlert('globalToast');
+    setTimeout(function() { document.getElementById('emailEditable').focus(); }, 100);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     2. GUARDAR CORREO
+  ════════════════════════════════════════════════════════ */
+  function guardarCorreo() {
+    var emailNuevo = (document.getElementById('emailEditable').value || '').trim();
+    if (!emailNuevo) {
+      showAlert('toastCorreo', 'warning', '⚠️', 'Campo requerido', 'Ingrese el correo del paciente.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNuevo)) {
+      showAlert('toastCorreo', 'error', '❌', 'Formato inválido', "El correo '" + emailNuevo + "' no tiene un formato válido.");
+      return;
+    }
+    if (emailNuevo === state.paciente.email) {
+      showAlert('toastCorreo', 'info', 'ℹ️', 'Sin cambios', 'El correo es igual al registrado actualmente.');
+      return;
+    }
+
+    setBtn('btnGuardarCorreo', true, '<span class="spinner"></span> Guardando...');
+
+    httpPut(API + '/paciente/' + encodeURIComponent(state.paciente.numero_documento) + '/correo', {
+      idPaciente:  state.paciente.id_paciente,
+      emailNuevo:  emailNuevo,
+      operador:    'ARCHIVO',
+    })
+      .then(function(r) {
+        setBtn('btnGuardarCorreo', false, '💾 Guardar');
+        var res = parseJson(r.text);
+        if (r.status >= 200 && r.status < 300 && res.ok) {
+          state.paciente.email = emailNuevo;
+          showAlert('toastCorreo', 'success', '✅', 'Correo actualizado', res.mensaje || 'El correo quedó guardado en el sistema.');
+        } else {
+          showAlert('toastCorreo', 'error', '❌', 'No se pudo actualizar', res.mensaje || res.error || 'Error desconocido.');
+        }
+      })
+      .catch(function(e) {
+        setBtn('btnGuardarCorreo', false, '💾 Guardar');
+        showAlert('toastCorreo', 'error', '❌', 'Error de conexión', e.message);
+      });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     3. CARGAR ATENCIONES
+  ════════════════════════════════════════════════════════ */
+  var _selectedIdAtencion = null;
+
+  function irPaso3() {
+    if (!state.paciente) return;
+    setActiveStep(3);
+    hide('step1'); hide('step2'); show('step3'); hide('step4');
+    hideAlert('globalToast');
+    cargarAtenciones();
+  }
+
+  function cargarAtenciones() {
+    _selectedIdAtencion = null;
+    show('atencionesLoading'); hide('atencionesLista'); hide('atencionesVacias');
+
+    httpGet(API + '/atenciones/' + state.paciente.id_paciente)
+      .then(function(r) {
+        hide('atencionesLoading');
+        var res = parseJson(r.text);
+        if (r.status >= 200 && r.status < 300 && res.ok && res.atenciones && res.atenciones.length > 0) {
+          renderAtenciones(res.atenciones);
+          show('atencionesLista');
+        } else {
+          show('atencionesVacias');
+        }
+      })
+      .catch(function() {
+        hide('atencionesLoading');
+        show('atencionesVacias');
+      });
+  }
+
+  function renderAtenciones(list) {
+    var container = document.getElementById('atencionesLista');
+    container.innerHTML = '';
+    for (var i = 0; i < list.length; i++) {
+      (function(a) {
+        var div = document.createElement('div');
+        div.className = 'atencion-option';
+        div.setAttribute('data-id', a.id);
+        var fecha = a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        }) : 'Fecha desconocida';
+        var esp = a.especialidad ? ' · ' + a.especialidad : '';
+        div.innerHTML =
+          '<div class="radio-dot"></div>' +
+          '<div class="atencion-info">' +
+            '<div class="atencion-fecha">' + escHtml(fecha) + escHtml(esp) + '</div>' +
+            '<div class="atencion-medico">👨‍⚕️ ' + escHtml(a.profesional || 'Médico no especificado') + '</div>' +
+          '</div>' +
+          '<span class="atencion-id">#' + a.id + '</span>';
+        div.onclick = function() {
+          var prev = container.querySelector('.atencion-option.selected');
+          if (prev) prev.className = 'atencion-option';
+          div.className = 'atencion-option selected';
+          _selectedIdAtencion = a.id;
+        };
+        container.appendChild(div);
+      })(list[i]);
+    }
+  }
+
+  function setModo(modo) {
+    state.modo = modo;
+    if (modo === 'lista') {
+      document.getElementById('tabLista').className = 'mode-tab active';
+      document.getElementById('tabId').className    = 'mode-tab';
+      show('panelLista'); hide('panelId');
+    } else {
+      document.getElementById('tabLista').className = 'mode-tab';
+      document.getElementById('tabId').className    = 'mode-tab active';
+      hide('panelLista'); show('panelId');
+      setTimeout(function() { document.getElementById('idManual').focus(); }, 50);
+    }
+  }
+
+  function obtenerIdAtencion() {
+    if (state.modo === 'lista') {
+      return _selectedIdAtencion ? parseInt(_selectedIdAtencion, 10) : null;
+    } else {
+      var v = (document.getElementById('idManual').value || '').trim();
+      return v ? parseInt(v, 10) : null;
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     4. ENVIAR
+  ════════════════════════════════════════════════════════ */
+  function enviarHistoria() {
+    hideAlert('toastEnvio');
+    var emailFinal = (document.getElementById('emailEditable').value || '').trim();
+
+    if (!emailFinal) {
+      showAlert('toastEnvio', 'warning', '⚠️', 'Sin correo', 'No hay correo definido para el envío.');
+      return;
+    }
+
+    setBtn('btnEnviar', true, '<span class="spinner"></span> Enviando...');
+    setBtn('btnAtras4', true, undefined);
+
+    httpPost(API + '/enviar', {
+      numDoc:      state.paciente.numero_documento,
+      idAtencion:  state.idAtencion,
+      operador:    'ARCHIVO',
+    })
+      .then(function(r) {
+        setBtn('btnEnviar', false, '<span class="btn-icon">🚀</span> Enviar historia');
+        setBtn('btnAtras4', false, undefined);
+        var res = parseJson(r.text);
+        if (r.status >= 200 && r.status < 300 && res.ok) {
+          showAlert('toastEnvio', 'success', '✅',
+            'Historia enviada correctamente',
+            'Los documentos fueron enviados a ' + escHtml(res.destino || emailFinal) + '. ' +
+            'El paciente debe abrir los archivos con su número de documento como contraseña.'
+          );
+          setBtn('btnEnviar', true, '✅ Enviado');
+          // Botón para nuevo paciente
+          setTimeout(function() {
+            state.paciente   = null;
+            state.idAtencion = null;
+            document.getElementById('numDoc').value = '';
+            hide('pacienteBox');
+            irPaso1();
+            showAlert('globalToast', 'success', '✅', 'Historia enviada', 'Puede registrar el siguiente paciente.');
+          }, 3000);
+        } else {
+          showAlert('toastEnvio', 'error', '❌',
+            'No se pudo enviar',
+            res.error || 'Error desconocido al procesar el envío.'
+          );
+        }
+      })
+      .catch(function(e) {
+        setBtn('btnEnviar', false, '<span class="btn-icon">🚀</span> Enviar historia');
+        setBtn('btnAtras4', false, undefined);
+        showAlert('toastEnvio', 'error', '❌', 'Error de conexión', e.message);
+      });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     INIT
+  ════════════════════════════════════════════════════════ */
+  window.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('numDoc').focus();
+    document.getElementById('numDoc').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') buscarPaciente();
+    });
+  });
+</script>
+</body>
+</html>

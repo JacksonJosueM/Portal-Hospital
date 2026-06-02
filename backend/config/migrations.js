@@ -44,7 +44,63 @@ const runMigrations = async () => {
       END
     `);
 
-    console.log('✅ Migraciones de envío (envios_historia) verificadas');
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[AuditoriaEnvios]') AND type in (N'U'))
+      BEGIN
+        CREATE TABLE [dbo].[AuditoriaEnvios] (
+          IdAuditoria INT IDENTITY(1,1) PRIMARY KEY,
+          IdAtencion BIGINT NULL,
+          DocumentoPaciente VARCHAR(50) NULL,
+          FechaAtencion DATETIME NULL,
+          FechaHoraEnvio DATETIME DEFAULT GETDATE(),
+          MedicoTratante VARCHAR(150) NULL,
+          CorreoDestino VARCHAR(200) NULL,
+          EquipoOrigen VARCHAR(100) NULL,
+          IpOrigen VARCHAR(50) NULL,
+          Estado VARCHAR(20) NOT NULL,
+          MotivoError NVARCHAR(MAX) NULL
+        )
+      END
+      ELSE
+      BEGIN
+        IF COL_LENGTH('dbo.AuditoriaEnvios', 'IpOrigen') IS NULL
+        BEGIN
+          ALTER TABLE [dbo].[AuditoriaEnvios] ADD IpOrigen VARCHAR(50) NULL;
+        END
+      END
+    `);
+
+    // ── Tabla exclusiva del módulo de Archivo ─────────────────────────────
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[AuditoriaEnviosArchivo]') AND type in (N'U'))
+      BEGIN
+        CREATE TABLE [dbo].[AuditoriaEnviosArchivo] (
+          IdRegistro       INT IDENTITY(1,1) PRIMARY KEY,
+          IdAtencion       BIGINT NULL,
+          DocumentoPaciente VARCHAR(50) NULL,
+          NombrePaciente   NVARCHAR(200) NULL,
+          FechaAtencion    DATETIME NULL,
+          FechaHoraEnvio   DATETIME DEFAULT GETDATE(),
+          CorreoOriginal   VARCHAR(200) NULL,
+          CorreoDestino    VARCHAR(200) NULL,
+          CorreoModificado BIT DEFAULT 0,
+          OperadorArchivo  NVARCHAR(100) NULL,
+          EquipoOrigen     VARCHAR(100) NULL,
+          IpOrigen         VARCHAR(50) NULL,
+          Estado           VARCHAR(20) NOT NULL,
+          MotivoError      NVARCHAR(MAX) NULL
+        )
+      END
+    `);
+
+    await pool.query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_auditoria_archivo_doc' AND object_id = OBJECT_ID('dbo.AuditoriaEnviosArchivo'))
+      BEGIN
+        CREATE INDEX idx_auditoria_archivo_doc ON dbo.AuditoriaEnviosArchivo (DocumentoPaciente, FechaHoraEnvio DESC);
+      END
+    `);
+
+    console.log('✅ Migraciones de envío (envios_historia, AuditoriaEnvios, AuditoriaEnviosArchivo) verificadas');
   } catch (err) {
     console.error('❌ Error en migraciones MSSQL:', err.message);
     throw err;

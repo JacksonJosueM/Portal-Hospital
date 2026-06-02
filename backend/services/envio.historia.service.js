@@ -23,6 +23,19 @@ const PdfEncrypt = require('./pdf.encrypt');
 const MailService = require('./mail.service');
 const HistoriaSP = require('./panacea/historiaSP');
 const pLimit = require('p-limit');
+const os = require('os');
+
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
 
 /**
  * Registra el resultado de un envío en la tabla portal.envios_historia
@@ -49,6 +62,36 @@ async function registrarEnvio({
       INSERT INTO envios_historia (id_atencion, tipo_documento, numero_documento, destino, estado, error_mensaje, fuente)
       VALUES (@id_atencion, @tipo_documento, @numero_documento, @destino, @estado, @error_mensaje, @fuente)
     `);
+}
+
+/**
+ * Registra asincrónicamente el resultado en la tabla AuditoriaEnvios
+ */
+async function registrarAuditoriaEnvioAsync(datos) {
+  try {
+    const p = await portalPool;
+    await p.request()
+      .input('IdAtencion', sql.BigInt, datos.IdAtencion || null)
+      .input('DocumentoPaciente', sql.VarChar(50), datos.DocumentoPaciente || null)
+      .input('FechaAtencion', sql.DateTime, datos.FechaAtencion || null)
+      .input('MedicoTratante', sql.VarChar(150), datos.MedicoTratante || null)
+      .input('CorreoDestino', sql.VarChar(200), datos.CorreoDestino || null)
+      .input('EquipoOrigen', sql.VarChar(100), datos.clientHostname || 'Desconocido')
+      .input('IpOrigen', sql.VarChar(50), datos.clientIp || 'Desconocido')
+      .input('Estado', sql.VarChar(20), datos.Estado)
+      .input('MotivoError', sql.NVarChar(sql.MAX), datos.MotivoError || null)
+      .query(`
+        INSERT INTO AuditoriaEnvios (
+          IdAtencion, DocumentoPaciente, FechaAtencion, MedicoTratante, 
+          CorreoDestino, EquipoOrigen, IpOrigen, Estado, MotivoError
+        ) VALUES (
+          @IdAtencion, @DocumentoPaciente, @FechaAtencion, @MedicoTratante, 
+          @CorreoDestino, @EquipoOrigen, @IpOrigen, @Estado, @MotivoError
+        )
+      `);
+  } catch (err) {
+    console.warn(`⚠️  [AuditoriaEnvios] Falló la inserción de auditoría: ${err.message}`);
+  }
 }
 
 /**
@@ -129,16 +172,22 @@ async function enviarHistoria({
   idAtencion = null,
   forzar = false,
   fuente = 'CLI',
+  clientIp,
+  clientHostname,
 }) {
   console.log(`🔍 Buscando paciente ${tipo_documento} ${numero_documento}...`);
   const paciente = await buscarPaciente(tipo_documento, numero_documento);
 
   if (!paciente) {
-    return { ok: false, error: `El paciente con el número de documento ${numero_documento} no está registrado en el sistema.` };
+    const errorMsg = `El paciente con el número de documento ${numero_documento} no está registrado en el sistema.`;
+    await registrarAuditoriaEnvioAsync({ DocumentoPaciente: numero_documento, Estado: 'ERROR', MotivoError: errorMsg, clientIp, clientHostname });
+    return { ok: false, error: errorMsg };
   }
 
   if (!paciente.email) {
-    return { ok: false, error: `El paciente ${paciente.NOMBRE_COMPLETO} no tiene correo registrado.` };
+    const errorMsg = `El paciente ${paciente.NOMBRE_COMPLETO} no tiene correo registrado.`;
+    await registrarAuditoriaEnvioAsync({ DocumentoPaciente: numero_documento, Estado: 'ERROR', MotivoError: errorMsg, clientIp, clientHostname });
+    return { ok: false, error: errorMsg };
   }
 
   // Corregir posibles errores tipográficos en el correo (muy común en registros manuales)
@@ -156,17 +205,21 @@ async function enviarHistoria({
   }
 
   if (!idAtencion) {
-    return { ok: false, error: `No se encontraron atenciones cerradas para el paciente.` };
+    const errorMsg = `No se encontraron atenciones cerradas para el paciente.`;
+    await registrarAuditoriaEnvioAsync({ DocumentoPaciente: numero_documento, CorreoDestino: paciente.email, Estado: 'ERROR', MotivoError: errorMsg, clientIp, clientHostname });
+    return { ok: false, error: errorMsg };
   }
 
   // ── Paso 3 · Idempotencia ───────────────────────────────────────────────
   if (!forzar) {
     const previo = await yaEnviada(idAtencion);
     if (previo) {
+      const errorMsg = `Ya enviada el ${fechaLegible(previo.fecha_envio)} (id=${previo.id})`;
+      // No registramos otra vez en auditoria un error por reintento omitido, o podrías decidir registrarlo con Estado 'OMITIDO'
       return {
         ok: true, omitido: true, idAtencion,
         destino: paciente.email,
-        error: `Ya enviada el ${fechaLegible(previo.fecha_envio)} (id=${previo.id})`,
+        error: errorMsg,
       };
     }
   }
@@ -442,6 +495,12 @@ async function enviarHistoria({
         error_mensaje: msg, fuente,
       });
     } catch (_) { /* noop */ }
+    
+    // Extracción segura para auditoría
+    const fechaAten = payload?.atencion?.FECHA_ATENCION || payload?.atencion?.basico_op5?.FECHA_ATENCION || payload?.atencion?.basico_op3?.FECHA_ATENCION;
+    const medicoT = payload?.atencion?.PROFESIONAL_ATIENDE || payload?.atencion?.NOMBRE_PROFESIONAL || payload?.atencion?.basico_op3?.NOMBRE_PROFESIONAL || payload?.profesional?.meta?.NOMBRE_COMPLETO || payload?.profesional?.meta?.NOMBRES || payload?.profesional?.meta?.NOMBRE || null;
+    await registrarAuditoriaEnvioAsync({ IdAtencion: idAtencion, DocumentoPaciente: numero_documento, FechaAtencion: fechaAten, MedicoTratante: medicoT, CorreoDestino: paciente.email, Estado: 'ERROR', MotivoError: msg, clientIp, clientHostname });
+
     return { ok: false, idAtencion, destino: paciente.email, error: msg };
   }
 
@@ -466,6 +525,10 @@ async function enviarHistoria({
       console.warn(`⚠️  [EnvioHistoria] Atención ${idAtencion}: correo enviado pero falló el INSERT de auditoría: ${auditErr.message}`);
     }
 
+    const fechaAten = payload?.atencion?.FECHA_ATENCION || payload?.atencion?.basico_op5?.FECHA_ATENCION || payload?.atencion?.basico_op3?.FECHA_ATENCION;
+    const medicoT = payload?.atencion?.PROFESIONAL_ATIENDE || payload?.atencion?.NOMBRE_PROFESIONAL || payload?.atencion?.basico_op3?.NOMBRE_PROFESIONAL || payload?.profesional?.meta?.NOMBRE_COMPLETO || payload?.profesional?.meta?.NOMBRES || payload?.profesional?.meta?.NOMBRE || null;
+    await registrarAuditoriaEnvioAsync({ IdAtencion: idAtencion, DocumentoPaciente: numero_documento, FechaAtencion: fechaAten, MedicoTratante: medicoT, CorreoDestino: paciente.email, Estado: 'ENVIADO', clientIp, clientHostname });
+
     return { ok: true, idAtencion, destino: paciente.email };
   } catch (err) {
     const msg = `Error enviando correo: ${err.message}`;
@@ -476,6 +539,11 @@ async function enviarHistoria({
         error_mensaje: msg, fuente,
       });
     } catch (_) { /* noop */ }
+
+    const fechaAten = payload?.atencion?.FECHA_ATENCION || payload?.atencion?.basico_op5?.FECHA_ATENCION || payload?.atencion?.basico_op3?.FECHA_ATENCION;
+    const medicoT = payload?.atencion?.PROFESIONAL_ATIENDE || payload?.atencion?.NOMBRE_PROFESIONAL || payload?.atencion?.basico_op3?.NOMBRE_PROFESIONAL || payload?.profesional?.meta?.NOMBRE_COMPLETO || payload?.profesional?.meta?.NOMBRES || payload?.profesional?.meta?.NOMBRE || null;
+    await registrarAuditoriaEnvioAsync({ IdAtencion: idAtencion, DocumentoPaciente: numero_documento, FechaAtencion: fechaAten, MedicoTratante: medicoT, CorreoDestino: paciente.email, Estado: 'ERROR', MotivoError: msg, clientIp, clientHostname });
+
     return { ok: false, idAtencion, destino: paciente.email, error: msg };
   }
 }

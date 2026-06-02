@@ -308,6 +308,67 @@
       };
     }
 
+    function obtenerNombreEquipo() {
+      // Método 1: Variable de entorno COMPUTERNAME (funciona incluso desde red compartida)
+      try {
+        var shell = new ActiveXObject('WScript.Shell');
+        var nombre = shell.ExpandEnvironmentStrings('%COMPUTERNAME%');
+        if (nombre && nombre !== '%COMPUTERNAME%') return nombre;
+      } catch (e) {}
+      // Método 2: WScript.Network (fallback)
+      try {
+        var network = new ActiveXObject('WScript.Network');
+        var nombre2 = network.ComputerName;
+        if (nombre2) return nombre2;
+      } catch (e) {}
+      return '';
+    }
+
+    function obtenerIPEquipo() {
+      // Método 1: PowerShell oculto — sin ventana negra
+      try {
+        var shell  = new ActiveXObject('WScript.Shell');
+        var fso    = new ActiveXObject('Scripting.FileSystemObject');
+        var tmpDir = fso.GetSpecialFolder(2); // carpeta Temp del sistema
+        var tmpFile = tmpDir + '\\hta_ip_' + (new Date()).getTime() + '.tmp';
+        var ps = 'powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command ' +
+                 '"(Get-NetIPAddress -AddressFamily IPv4 | ' +
+                 'Where-Object { $_.IPAddress -ne \'127.0.0.1\' -and ' +
+                 '$_.PrefixOrigin -ne \'WellKnown\' } | ' +
+                 'Select-Object -First 1 -ExpandProperty IPAddress) | ' +
+                 'Out-File -Encoding ASCII -FilePath \'' + tmpFile + '\'"';
+        shell.Run(ps, 0, true); // 0 = oculto, true = esperar a que termine
+        if (fso.FileExists(tmpFile)) {
+          var ts  = fso.OpenTextFile(tmpFile, 1);
+          var ip  = ts.ReadAll().replace(/\s/g, '');
+          ts.Close();
+          fso.DeleteFile(tmpFile);
+          if (ip && ip.indexOf('.') !== -1) return ip;
+        }
+      } catch (e) {}
+      // Método 2: WMI (fallback silencioso)
+      try {
+        var wmi = new ActiveXObject('WbemScripting.SWbemLocator');
+        var svc = wmi.ConnectServer('.', 'root\\CIMV2');
+        svc.Security_.ImpersonationLevel = 3;
+        var col = svc.ExecQuery('SELECT IPAddress FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = TRUE');
+        var en  = new Enumerator(col);
+        for (; !en.atEnd(); en.moveNext()) {
+          var item = en.item();
+          if (item.IPAddress != null) {
+            var ips = (new VBArray(item.IPAddress)).toArray();
+            for (var j = 0; j < ips.length; j++) {
+              if (ips[j] && ips[j].indexOf('.') !== -1 &&
+                  ips[j] !== '127.0.0.1' && ips[j].indexOf('169.254') === -1) {
+                return ips[j];
+              }
+            }
+          }
+        }
+      } catch (e) {}
+      return '';
+    }
+
     function enviar(ev) {
       if (ev && ev.preventDefault) ev.preventDefault();
 
@@ -363,7 +424,10 @@
               mensajeError.detalle);
           }
         };
-        xhr.send('{"numDoc":"' + doc + '"}');
+        var equipo = obtenerNombreEquipo();
+        var ip = obtenerIPEquipo();
+        var payload = '{"numDoc":"' + doc + '", "equipoOrigen":"' + equipo + '", "ipOrigen":"' + ip + '"}';
+        xhr.send(payload);
       } catch (e) {
         btn.disabled = false;
         btn.innerText = 'Enviar';

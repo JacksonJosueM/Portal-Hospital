@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Envío de Historia — Área de Archivo · Hospital</title>
+
+  <HTA:APPLICATION
+    APPLICATIONNAME="ArchivoHistoria"
+    ID="ArchivoHistoria"
+    VERSION="1.0"
+    BORDER="thin"
+    INNERBORDER="no"
+    SCROLL="auto"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+    SHOWINTASKBAR="yes"
+    CAPTION="yes"
+    SYSMENU="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+    NAVIGABLE="no"
+    ICON="" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: #333333;
+      background: #f4f6f9;
+      overflow-y: auto;
+    }
+
+    .container {
+      width: 100%;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .header {
+      background: #1a3a5c;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header .logo-wrap {
+      width: 60px; height: 60px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex-shrink: 0;
+      padding: 6px;
+    }
+    .header .logo-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .header-text h1 {
+      font-size: 18px; font-weight: 600;
+      color: #fff; letter-spacing: 0.3px;
+    }
+    .header-text p {
+      font-size: 11px; color: #a8c4e0;
+      margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .content {
+      padding: 20px 24px 24px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700;
+      color: #6c757d; text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eef0f3;
+    }
+
+    /* ── Form elements ──────────────────────────────────── */
+    .row { display: flex; gap: 12px; align-items: flex-end; }
+    .row .field { flex: 1; }
+
+    .field { margin-bottom: 0; }
+    .field label {
+      display: block; font-size: 11px; font-weight: 700;
+      color: #6c757d; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .field input, .field select {
+      width: 100%; padding: 9px 12px;
+      font-size: 13px; color: #333;
+      border: 1px solid #ced4da; border-radius: 6px;
+      background: #fff; font-family: inherit;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: #1a6bb5;
+      box-shadow: 0 0 0 3px rgba(26,107,181,0.12);
+    }
+    .field input[readonly] {
+      background: #f8f9fa; color: #555; cursor: default;
+    }
+
+    /* ── Botones ────────────────────────────────────────── */
+    .btn {
+      padding: 9px 18px; font-size: 13px; font-weight: 600;
+      border-radius: 6px; cursor: pointer;
+      font-family: inherit; border: none;
+      white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary   { background: #1a3a5c; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #0f2540; }
+
+    .btn-success   { background: #1a6b2f; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #144d22; }
+
+    .btn-warning   { background: #b35c00; color: #fff; }
+    .btn-warning:hover:not(:disabled) { background: #8a4700; }
+
+    .btn-secondary { background: transparent; color: #1a3a5c; border: 1px solid #1a3a5c; }
+    .btn-secondary:hover:not(:disabled) { background: #f0f4f8; }
+
+    /* ── Paciente info box ──────────────────────────────── */
+    .paciente-info {
+      display: none;
+      background: #eef5fb;
+      border: 1px solid #b6d4f0;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .paciente-info.show { display: block; }
+    .paciente-info strong { color: #1a3a5c; }
+    .paciente-info .pi-row { display: flex; gap: 8px; margin-top: 4px; font-size: 12px; color: #555; }
+    .paciente-info .pi-label { font-weight: 700; color: #1a3a5c; width: 90px; flex-shrink: 0; }
+
+    /* ── Selector de atención ───────────────────────────── */
+    .modo-selector {
+      display: flex; gap: 16px; margin-bottom: 12px;
+    }
+    .modo-selector label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; cursor: pointer;
+    }
+
+    /* ── Toast ──────────────────────────────────────────── */
+    .toast {
+      display: none; padding: 11px 14px;
+      border-radius: 6px; font-size: 13px; line-height: 1.4;
+    }
+    .toast.show { display: block; }
+    .toast .t-title  { display: block; font-weight: 700; margin-bottom: 2px; }
+    .toast .t-detail { display: block; font-size: 12px; }
+    .toast.ok    { background:#d4edda; border:1px solid #c3e6cb; border-left:4px solid #28a745; color:#155724; }
+    .toast.error { background:#f8d7da; border:1px solid #f5c6cb; border-left:4px solid #dc3545; color:#721c24; }
+    .toast.info  { background:#cce5ff; border:1px solid #b8daff; border-left:4px solid #007bff; color:#004085; }
+    .toast.warn  { background:#fff3cd; border:1px solid #ffeeba; border-left:4px solid #ffc107; color:#856404; }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    .footer {
+      background: #eef0f3; padding: 10px;
+      text-align: center; font-size: 10px;
+      color: #adb5bd; text-transform: uppercase; letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <img src="../templates/Logo.png" alt="Hospital" onerror="this.style.display='none'">
+    </div>
+    <div class="header-text">
+      <h1>Envío de Historia Clínica</h1>
+      <p>Área de Archivo y Correspondencia</p>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Toast global -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ── Paso 1: Buscar paciente ─────────────────────── -->
+    <div class="card">
+      <div class="card-title">1. Buscar Paciente</div>
+      <div class="row">
+        <div class="field">
+          <label for="numDoc">Número de documento</label>
+          <input type="text" id="numDoc" placeholder="Ej. 12345678" maxlength="20">
+        </div>
+        <button class="btn btn-primary" id="btnBuscar" onclick="buscarPaciente();">Buscar</button>
+      </div>
+
+      <div id="pacienteInfo" class="paciente-info" style="margin-top:12px;">
+        <strong id="piNombre"></strong>
+        <div class="pi-row"><span class="pi-label">Documento:</span><span id="piDoc"></span></div>
+        <div class="pi-row"><span class="pi-label">Correo:</span><span id="piCorreo"></span></div>
+      </div>
+    </div>
+
+    <!-- ── Paso 2: Verificar / cambiar correo ─────────── -->
+    <div class="card" id="seccionCorreo" style="display:none;">
+      <div class="card-title">2. Verificar Correo del Paciente</div>
+      <div class="row">
+        <div class="field">
+          <label for="emailEditable">Correo electrónico</label>
+          <input type="text" id="emailEditable" placeholder="correo@ejemplo.com" maxlength="200">
+        </div>
+        <button class="btn btn-warning" id="btnActualizarCorreo" onclick="actualizarCorreo();">
+          Guardar correo
+        </button>
+      </div>
+      <div id="toastCorreo" class="toast" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- ── Paso 3: Seleccionar atención ───────────────── -->
+    <div class="card" id="seccionAtencion" style="display:none;">
+      <div class="card-title">3. Seleccionar Atención a Enviar</div>
+
+      <div class="modo-selector">
+        <label>
+          <input type="radio" name="modoAtencion" id="modoPorLista" value="lista" checked onchange="cambiarModo();">
+          Elegir de la lista
+        </label>
+        <label>
+          <input type="radio" name="modoAtencion" id="modoPorId" value="id" onchange="cambiarModo();">
+          Ingresar ID manualmente
+        </label>
+      </div>
+
+      <!-- Modo lista (por fecha) -->
+      <div id="panelLista">
+        <div class="field">
+          <label for="listaAtenciones">Atenciones cerradas disponibles</label>
+          <select id="listaAtenciones" size="1">
+            <option value="">-- Cargando atenciones... --</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Modo ID manual -->
+      <div id="panelId" style="display:none;">
+        <div class="field">
+          <label for="idAtencionManual">ID de la atención</label>
+          <input type="text" id="idAtencionManual" placeholder="Ej. 359695" maxlength="20">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Paso 4: Enviar ──────────────────────────────── -->
+    <div class="card" id="seccionEnviar" style="display:none;">
+      <div class="card-title">4. Enviar Historia Clínica</div>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="window.close();">Cerrar</button>
+        <button class="btn btn-success" id="btnEnviar" onclick="enviarHistoria();">
+          ✉ Enviar historia
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Hospital · Área de Archivo &nbsp;·&nbsp; <span id="lblApi">localhost:3001</span>
+  </div>
+
+</div>
+
+<script language="JScript">
+  // ── Configuración ──────────────────────────────────────────────────────
+  var API_BASE = 'http://10.10.0.15:3001/archivo';
+
+  // Estado de sesión
+  var _paciente = null;  // { id_paciente, nombre, numero_documento, email }
+
+  // ── Inicialización ─────────────────────────────────────────────────────
+  try {
+    window.resizeTo(600, 700);
+    window.moveTo(
+      Math.max(0, (screen.width  - 600) / 2),
+      Math.max(0, (screen.height - 700) / 2)
+    );
+  } catch (e) {}
+
+  window.onload = function () {
+    try { document.getElementById('numDoc').focus(); } catch (e) {}
+    try { document.getElementById('lblApi').innerText = '10.10.0.15:3001'; } catch (e) {}
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  function trim(s) { return (s || '').replace(/^\s+|\s+$/g, ''); }
+
+  function showToast(id, cls, title, detail) {
+    var t = document.getElementById(id);
+    t.className = 'toast show ' + cls;
+    t.innerHTML = '<span class="t-title">' + title + '</span>' +
+                  '<span class="t-detail">' + detail + '</span>';
+  }
+  function hideToast(id) {
+    var t = document.getElementById(id);
+    t.className = 'toast';
+    t.innerHTML = '';
+  }
+
+  function mostrarSeccion(id) {
+    try { document.getElementById(id).style.display = 'block'; } catch(e) {}
+  }
+  function ocultarSeccion(id) {
+    try { document.getElementById(id).style.display = 'none';  } catch(e) {}
+  }
+
+  function obtenerNombreEquipo() {
+    try {
+      var sh = new ActiveXObject('WScript.Shell');
+      var n  = sh.ExpandEnvironmentStrings('%COMPUTERNAME%');
+      if (n && n !== '%COMPUTERNAME%') return n;
+    } catch (e) {}
+    try {
+      var net = new ActiveXObject('WScript.Network');
+      if (net.ComputerName) return net.ComputerName;
+    } catch (e) {}
+    return '';
+  }
+
+  function obtenerIPEquipo() {
+    try {
+      var shell  = new ActiveXObject('WScript.Shell');
+      var fso    = new ActiveXObject('Scripting.FileSystemObject');
+      var tmpDir = fso.GetSpecialFolder(2);
+      var tmpFile = tmpDir + '\\hta_ip_' + (new Date()).getTime() + '.tmp';
+      var ps = 'powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command ' +
+               '"(Get-NetIPAddress -AddressFamily IPv4 | ' +
+               'Where-Object { $_.IPAddress -ne \'127.0.0.1\' -and ' +
+               '$_.PrefixOrigin -ne \'WellKnown\' } | ' +
+               'Select-Object -First 1 -ExpandProperty IPAddress) | ' +
+               'Out-File -Encoding ASCII -FilePath \'' + tmpFile + '\'"';
+      shell.Run(ps, 0, true);
+      if (fso.FileExists(tmpFile)) {
+        var ts = fso.OpenTextFile(tmpFile, 1);
+        var ip = ts.ReadAll().replace(/\s/g, '');
+        ts.Close();
+        fso.DeleteFile(tmpFile);
+        if (ip && ip.indexOf('.') !== -1) return ip;
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  function httpGet(url, callback) {
+    try {
+      var xhr = new ActiveXObject('Msxml2.XMLHTTP.6.0');
+      xhr.open('GET', url, true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        callback(xhr.status, xhr.responseText);
+      };
+      xhr.send();
+    } catch (e) {
+      callback(0, '');
+    }
+  }
+
+  function httpPost(url, body, callback) {
+    try {
+      var xhr = new ActiveXObject('Msxml2.XMLHTTP.6.0');
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        callback(xhr.status, xhr.responseText);
+      };
+      xhr.send(body);
+    } catch (e) {
+      callback(0, '');
+    }
+  }
+
+  function httpPut(url, body, callback) {
+    try {
+      var xhr = new ActiveXObject('Msxml2.XMLHTTP.6.0');
+      xhr.open('PUT', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        callback(xhr.status, xhr.responseText);
+      };
+      xhr.send(body);
+    } catch (e) {
+      callback(0, '');
+    }
+  }
+
+  // ── 1. Buscar paciente ─────────────────────────────────────────────────
+  function buscarPaciente() {
+    hideToast('toast');
+    var numDoc = trim(document.getElementById('numDoc').value);
+    if (!numDoc) { showToast('toast', 'error', 'Campo requerido', 'Ingrese el número de documento.'); return; }
+
+    var btn = document.getElementById('btnBuscar');
+    btn.disabled = true; btn.innerText = 'Buscando...';
+
+    // Ocultar secciones previas
+    ocultarSeccion('seccionCorreo');
+    ocultarSeccion('seccionAtencion');
+    ocultarSeccion('seccionEnviar');
+    document.getElementById('pacienteInfo').className = 'paciente-info';
+    _paciente = null;
+
+    httpGet(API_BASE + '/paciente/' + encodeURIComponent(numDoc), function(status, text) {
+      btn.disabled = false; btn.innerText = 'Buscar';
+      if (status >= 200 && status < 300) {
+        try {
+          var res = JSON.parse(text || '{}');
+          if (res.ok && res.paciente) {
+            _paciente = res.paciente;
+
+            // Mostrar info
+            document.getElementById('piNombre').innerText = res.paciente.nombre;
+            document.getElementById('piDoc').innerText    = res.paciente.numero_documento;
+            document.getElementById('piCorreo').innerText = res.paciente.email || '(sin correo registrado)';
+            document.getElementById('pacienteInfo').className = 'paciente-info show';
+
+            // Mostrar sección de correo
+            document.getElementById('emailEditable').value = res.paciente.email || '';
+            mostrarSeccion('seccionCorreo');
+
+            // Cargar atenciones
+            mostrarSeccion('seccionAtencion');
+            cargarAtenciones(res.paciente.id_paciente);
+
+            mostrarSeccion('seccionEnviar');
+
+            showToast('toast', 'ok', 'Paciente encontrado', res.paciente.nombre);
+          } else {
+            showToast('toast', 'error', 'Paciente no encontrado', res.error || 'Sin resultados.');
+          }
+        } catch(e) {
+          showToast('toast', 'error', 'Error al procesar respuesta', text);
+        }
+      } else {
+        var msg = '';
+        try { var r = JSON.parse(text || '{}'); msg = r.error || ''; } catch(e) {}
+        showToast('toast', 'error', 'No encontrado', msg || 'El paciente no está registrado en el sistema.');
+      }
+    });
+  }
+
+  // ── 2. Cargar atenciones ───────────────────────────────────────────────
+  function cargarAtenciones(idPaciente) {
+    var sel = document.getElementById('listaAtenciones');
+    sel.innerHTML = '<option value="">-- Cargando... --</option>';
+
+    httpGet(API_BASE + '/atenciones/' + idPaciente, function(status, text) {
+      sel.innerHTML = '';
+      if (status >= 200 && status < 300) {
+        try {
+          var res = JSON.parse(text || '{}');
+          if (res.ok && res.atenciones && res.atenciones.length > 0) {
+            for (var i = 0; i < res.atenciones.length; i++) {
+              var a = res.atenciones[i];
+              var fecha = a.fecha ? new Date(a.fecha).toLocaleDateString('es-CO') : 'Fecha desconocida';
+              var opt = document.createElement('option');
+              opt.value = a.id;
+              opt.text  = 'ID ' + a.id + ' — ' + fecha + ' — ' + a.profesional;
+              sel.appendChild(opt);
+            }
+          } else {
+            var opt0 = document.createElement('option');
+            opt0.value = ''; opt0.text = '-- No hay atenciones cerradas --';
+            sel.appendChild(opt0);
+          }
+        } catch(e) {
+          var optErr = document.createElement('option');
+          optErr.value = ''; optErr.text = '-- Error al cargar --';
+          sel.appendChild(optErr);
+        }
+      } else {
+        var optErr2 = document.createElement('option');
+        optErr2.value = ''; optErr2.text = '-- Error al cargar atenciones --';
+        sel.appendChild(optErr2);
+      }
+    });
+  }
+
+  // ── Cambiar modo selección de atención ─────────────────────────────────
+  function cambiarModo() {
+    var modo = document.querySelector('input[name="modoAtencion"]:checked').value;
+    if (modo === 'lista') {
+      document.getElementById('panelLista').style.display = 'block';
+      document.getElementById('panelId').style.display    = 'none';
+    } else {
+      document.getElementById('panelLista').style.display = 'none';
+      document.getElementById('panelId').style.display    = 'block';
+    }
+  }
+
+  // ── 3. Actualizar correo ───────────────────────────────────────────────
+  function actualizarCorreo() {
+    hideToast('toastCorreo');
+    if (!_paciente) { showToast('toastCorreo', 'error', 'Sin paciente', 'Primero busque un paciente.'); return; }
+
+    var emailNuevo = trim(document.getElementById('emailEditable').value);
+    if (!emailNuevo) { showToast('toastCorreo', 'error', 'Campo requerido', 'Ingrese el correo.'); return; }
+
+    var emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailReg.test(emailNuevo)) {
+      showToast('toastCorreo', 'error', 'Correo inválido', 'El formato del correo no es válido.');
+      return;
+    }
+
+    var btn = document.getElementById('btnActualizarCorreo');
+    btn.disabled = true; btn.innerText = 'Guardando...';
+
+    var equipo = obtenerNombreEquipo();
+    var ip     = obtenerIPEquipo();
+
+    var body = JSON.stringify({
+      idPaciente:  _paciente.id_paciente,
+      emailNuevo:  emailNuevo,
+      operador:    equipo || 'ARCHIVO',
+      equipoOrigen: equipo,
+      ipOrigen:    ip
+    });
+
+    httpPut(API_BASE + '/paciente/' + encodeURIComponent(_paciente.numero_documento) + '/correo', body, function(status, text) {
+      btn.disabled = false; btn.innerText = 'Guardar correo';
+      if (status >= 200 && status < 300) {
+        _paciente.email = emailNuevo;
+        document.getElementById('piCorreo').innerText = emailNuevo;
+        showToast('toastCorreo', 'ok', 'Correo actualizado', 'El nuevo correo quedó guardado en el sistema.');
+      } else {
+        var msg = '';
+        try { var r = JSON.parse(text || '{}'); msg = r.mensaje || r.error || ''; } catch(e) {}
+        showToast('toastCorreo', 'error', 'No se pudo actualizar', msg || 'Error desconocido.');
+      }
+    });
+  }
+
+  // ── 4. Enviar historia ─────────────────────────────────────────────────
+  function enviarHistoria() {
+    hideToast('toast');
+    if (!_paciente) { showToast('toast', 'error', 'Sin paciente', 'Primero busque un paciente.'); return; }
+
+    // Resolver ID de atención según modo seleccionado
+    var modo = document.querySelector('input[name="modoAtencion"]:checked').value;
+    var idAtencion = '';
+    if (modo === 'lista') {
+      var sel = document.getElementById('listaAtenciones');
+      idAtencion = trim(sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].value : '');
+    } else {
+      idAtencion = trim(document.getElementById('idAtencionManual').value);
+    }
+
+    if (!idAtencion) {
+      showToast('toast', 'error', 'Atención requerida', 'Seleccione o ingrese el ID de la atención a enviar.');
+      return;
+    }
+
+    var equipo = obtenerNombreEquipo();
+    var ip     = obtenerIPEquipo();
+
+    var btn = document.getElementById('btnEnviar');
+    btn.disabled = true; btn.innerText = 'Enviando...';
+    showToast('toast', 'info', 'Procesando...', 'Generando PDFs y enviando al correo del paciente. Espere...');
+
+    var body = JSON.stringify({
+      numDoc:       _paciente.numero_documento,
+      idAtencion:   parseInt(idAtencion, 10),
+      operador:     equipo || 'ARCHIVO',
+      equipoOrigen: equipo,
+      ipOrigen:     ip
+    });
+
+    httpPost(API_BASE + '/enviar', body, function(status, text) {
+      btn.disabled = false; btn.innerText = '✉ Enviar historia';
+      if (status >= 200 && status < 300) {
+        var destino = '';
+        try { var r = JSON.parse(text || '{}'); destino = r.destino || ''; } catch(e) {}
+        showToast('toast', 'ok',
+          'Historia enviada correctamente',
+          'Se envió al correo: ' + destino + '. El paciente recibirá los documentos protegidos con su número de documento.'
+        );
+        // Limpiar para siguiente paciente
+        try {
+          document.getElementById('numDoc').value = '';
+          document.getElementById('pacienteInfo').className = 'paciente-info';
+          ocultarSeccion('seccionCorreo');
+          ocultarSeccion('seccionAtencion');
+          ocultarSeccion('seccionEnviar');
+          _paciente = null;
+          document.getElementById('numDoc').focus();
+        } catch(e) {}
+      } else {
+        var msg = '';
+        try { var r2 = JSON.parse(text || '{}'); msg = r2.error || ''; } catch(e) {}
+        showToast('toast', 'error', 'No se pudo enviar', msg || 'Verifique que el servidor esté activo.');
+      }
+    });
+  }
+
+  // Permitir buscar con Enter
+  try {
+    document.getElementById('numDoc').onkeydown = function(e) {
+      if ((e || window.event).keyCode === 13) buscarPaciente();
+    };
+  } catch(e) {}
+</script>
+
+</body>
+</html>
